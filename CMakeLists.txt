@@ -8,13 +8,15 @@
 #  This is the main cmake file for EtherLab target for Real-Time Workshop(TM)
 #  target of Mathworks.
 #
-#  The following options can be specified on the command line of cmake to
-#  change the installation paths (Defaults are in <>)
-#       -DPREFIX=</opt/etherlab>
+#  The files are installed to:
+#       ${CMAKE_INSTALL_PREFIX}/${DATAROOTDIR}/${TARGETDIR}
 #
-#  For debugging, use the
-#       -DCMAKE_BUILD_TYPE=Debug|Release|RelWithDebInfo|MinSizeRel
-#  option
+#  where the defaults are (depending on your platform):
+#       CMAKE_INSTALL_PREFIX = /usr/local
+#       DATAROOTDIR = share
+#       TARGETDIR = etherlab
+#
+#  For detailed instructions, see README
 #
 #  This file is part of the EtherLab package.
 #
@@ -89,7 +91,10 @@ IF (MERCURIAL_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.hg")
 MERCURIAL_HG_INFO (${PROJECT_SOURCE_DIR} Package)
 ENDIF ()
 
-STRING (TIMESTAMP DATE "%d-%m-%Y")
+IF (NOT CMAKE_VERSION VERSION_LESS "3.0")
+    # Matlab requires this format
+    STRING (TIMESTAMP DATE "%d-%m-%Y")
+ENDIF()
 
 INSTALL (DIRECTORY rtw/
     DESTINATION "${ETHERLAB_DIR}"
@@ -102,10 +107,10 @@ INSTALL (FILES ${CMAKE_SOURCE_DIR}/README
 
 CONFIGURE_FILE("etherlab.spec.in"
     "${CMAKE_CURRENT_BINARY_DIR}/etherlab.spec")
-CONFIGURE_FILE("rtw/etherlab/Contents.m.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/rtw/etherlab/Contents.m")
-CONFIGURE_FILE("rtw/etherlab/etherlab_hrt.tmf.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/rtw/etherlab/etherlab_hrt.tmf")
+CONFIGURE_FILE("rtw/Contents.m.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/rtw/Contents.m")
+CONFIGURE_FILE("rtw/etherlab_hrt.tmf.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/rtw/etherlab_hrt.tmf")
 
 SET (CPACK_PACKAGE_DESCRIPTION_SUMMARY
     "Simulink Coder target using pdserv library")
