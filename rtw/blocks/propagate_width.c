@@ -1,60 +1,68 @@
 /*
- * $RCSfile: el31xx.c,v $
- * $Revision$
- * $Date$
- *
- * SFunction to implement the raise function
- *
- * Copyright (c) 2006, Richard Hacker
- * License: GPLv3+
- */
+* $Id$
+*
+* This SFunction propagates width of port 1 to other ports
+*
+* Copyright (c) 2017, Richard Hacker
+* License: GPLv3+
+*
+*/
 
-
-#define S_FUNCTION_NAME  world_time
+#define S_FUNCTION_NAME  propagate_width
 #define S_FUNCTION_LEVEL 2
 
 #include "simstruc.h"
 
-#define TSAMPLE           (mxGetScalar(ssGetSFcnParam(S,0)))
-#define PARAM_COUNT                                     1
 
+
+#define PORTS      (int_T)(mxGetScalar(ssGetSFcnParam(S,0)))
+#define WIDTH      (int_T)(mxGetScalar(ssGetSFcnParam(S,1)))
+#define PARAM_COUNT                                     2
 
 /*====================*
  * S-function methods *
  *====================*/
 
-/* Function: mdlInitializeSizes ===============================================
+/* Function: mdlInitializeSizes =============================================
  * Abstract:
  *    The sizes information is used by Simulink to determine the S-function
  *    block's characteristics (number of inputs, outputs, states, etc.).
  */
 static void mdlInitializeSizes(SimStruct *S)
 {
-    uint_T i;
-    
+    int_T i;
+    int_T width = WIDTH;
+
     ssSetNumSFcnParams(S, PARAM_COUNT);  /* Number of expected parameters */
     if (ssGetNumSFcnParams(S) != ssGetSFcnParamsCount(S)) {
         /* Return if number of expected != number of actual parameters */
         return;
     }
-    for( i = 0; i < PARAM_COUNT; i++) 
-        ssSetSFcnParamTunable(S,i,SS_PRM_NOT_TUNABLE);
 
-    if (!ssSetNumInputPorts(S, 0)) return;
+    for( i = 0; i < PARAM_COUNT; i++)
+        ssSetSFcnParamTunable(S, i, SS_PRM_NOT_TUNABLE);
 
-    if (!ssSetNumOutputPorts(S, 1)) return;
-    ssSetOutputPortWidth(S, 0, 1);
-    ssSetOutputPortDataType(S, 0, SS_DOUBLE);
+    /* Process input ports */
+    if (!ssSetNumInputPorts(S, PORTS))
+        return;
+    if (!ssSetNumOutputPorts(S, 0))
+        return;
 
-    ssSetNumSampleTimes(S, 1);
-    ssSetNumPWork(S, 1);
+    /* Input port */
+    for (i = 0; i < ssGetNumInputPorts(S); ++i) {
+        ssSetInputPortWidth(S, i, width);
+        ssSetInputPortDataType(S, i, DYNAMICALLY_TYPED);
+    }
 
-    ssSetOptions(S, 
-            SS_OPTION_WORKS_WITH_CODE_REUSE | 
-            SS_OPTION_RUNTIME_EXCEPTION_FREE_CODE);
+    ssSetNumSampleTimes(S, PORT_BASED_SAMPLE_TIMES);
+
+    ssSetOptions(S,
+            SS_OPTION_WORKS_WITH_CODE_REUSE
+            | SS_OPTION_RUNTIME_EXCEPTION_FREE_CODE
+            | SS_OPTION_CALL_TERMINATE_ON_EXIT);
 }
 
-/* Function: mdlInitializeSampleTimes =========================================
+/* Function: mdlInitializeSampleTimes =======================================
  * Abstract:
  *    This function is used to specify the sample time(s) for your
  *    S-function. You must register the same number of sample times as
@@ -62,20 +70,19 @@ static void mdlInitializeSizes(SimStruct *S)
  */
 static void mdlInitializeSampleTimes(SimStruct *S)
 {
-    ssSetSampleTime(S, 0, TSAMPLE);
-    ssSetOffsetTime(S, 0, 0.0);
+    /*ssSetSampleTime(S, 0, TSAMPLE);*/
 }
 
-/* Function: mdlOutputs =======================================================
+/* Function: mdlOutputs =====================================================
  * Abstract:
  *    In this function, you compute the outputs of your S-function
- *    block. Generally outputs are placed in the input vector, ssGetY(S).
+ *    block. Generally outputs are placed in the output vector, ssGetY(S).
  */
 static void mdlOutputs(SimStruct *S, int_T tid)
 {
 }
 
-/* Function: mdlTerminate =====================================================
+/* Function: mdlTerminate ===================================================
  * Abstract:
  *    In this function, you should perform any actions that are necessary
  *    at the termination of a simulation.  For example, if memory was
@@ -88,8 +95,6 @@ static void mdlTerminate(SimStruct *S)
 #define MDL_RTW
 static void mdlRTW(SimStruct *S)
 {
-    if (!ssWriteRTWWorkVect(S, "PWork", 1, "Addr", 1))
-        return;
 }
 
 

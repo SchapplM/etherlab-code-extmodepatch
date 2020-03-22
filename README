@@ -1,6 +1,6 @@
 =============================================================================
 
-vim: tw=78 spelllang=en spell
+vim: tw=78 spelllang=en
 
 $Id$
 
@@ -12,7 +12,7 @@ is a trademark of The MathWorks, Inc.
 References to these terms in this package are used in context of these terms
 to explain concepts.
 
-Copyright 2012-2016 Richard Hacker (lerichi at gmx dot net)
+Copyright 2012-2017 Richard Hacker (lerichi at gmx dot net)
 
 This file is part of EtherLab.
 
@@ -111,10 +111,13 @@ Configuration
     # /usr/local/share/etherlab/install.sh $(MATLAB_ROOT)
 
     Now start MATLAB, and call setup:
-    >> run(fullfile(matlabroot, 'etherlab', 'setup_etherlab.m'))
+    >> run(fullfile(matlabroot, 'rtw/c/etherlab', 'setup_etherlab.m'))
 
-    This configures the package for use with Simulink.  As part of the
-    configuration, the script saves the path
+    This configures the package for use with Simulink. As it compiles
+    mex functions, make sure that directories below
+    $(matlabroot)/rtw/c/etherlab/ are writeable by the matlab user.
+
+    During configuration, paths are added to matlabpath and saved to
     ($(MATLAB_ROOT)/toolbox/local/pathdef.m). Make sure it is writeable.
 
 Using EtherLab
@@ -147,9 +150,9 @@ Using EtherLab in a hosted environment
 
     Now copy the directory <model>_etl_hrt to the target machine. Also copy
     the following files from your MATLAB installation:
-            $(MATLAB_ROOT)/extern/include
-            $(MATLAB_ROOT)/simulink/include/
-            $(MATLAB_ROOT)/rtw/c/src/
+            ${MATLAB_ROOT}/extern/include
+            ${MATLAB_ROOT}/simulink/include/
+            ${MATLAB_ROOT}/rtw/c/src/
     to the target using the same directory structure.
 
     Dive into the directory containing <model>_etl_hrt -- not into the
@@ -167,14 +170,16 @@ Using EtherLab in a hosted environment
 
 Removing EtherLab
 
-    Installation using:
+    First remove etherlab from matlab (this is not done automatically, not
+    even when using package managers):
+        - call /usr/local/share/etherlab/uninstall.sh <MATLABROOT>
+
+        - From Matlab:
+        >> pathtool
+        remove references to etherlab. Save path.
+
+    Now remove installation base:
         - package manager: remove EtherLab
         - source files: rm -rf /usr/local/share/etherlab
-                        rm -rf $MATLAB_ROOT/rtw/c/etherlab
           
-
-    From Matlab:
-    >> pathtool
-    remove references to etherlab. Save path.
-
     Finished
