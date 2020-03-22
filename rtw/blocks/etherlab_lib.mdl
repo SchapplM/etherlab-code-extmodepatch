@@ -15,9 +15,9 @@ Library {
   ModifiedByFormat	  "%<Auto>"
   LastModifiedBy	  "ha"
   ModifiedDateFormat	  "%<Auto>"
-  LastModifiedDate	  "Thu Jan 28 16:30:42 2016"
-  RTWModifiedTimeStamp	  375899441
-  ModelVersionFormat	  "1.%<AutoIncrement:1683>"
+  LastModifiedDate	  "Tue Oct 25 22:13:45 2016"
+  RTWModifiedTimeStamp	  399334423
+  ModelVersionFormat	  "1.%<AutoIncrement:1692>"
   ConfigurationManager	  "rcs"
   SampleTimeColors	  off
   SampleTimeAnnotations	  off
@@ -585,7 +585,7 @@ Library {
   }
   System {
     Name		    "etherlab_lib"
-    Location		    [796, 68, 1230, 276]
+    Location		    [521, 50, 955, 258]
     Open		    on
     ModelBrowserVisibility  off
     ModelBrowserWidth	    200
@@ -599,7 +599,7 @@ Library {
     ShowPageBoundaries	    off
     ZoomFactor		    "100"
     ReportName		    "simulink-default.rpt"
-    SIDHighWatermark	    273
+    SIDHighWatermark	    277
     Block {
       BlockType		      SubSystem
       Name		      "EtherCAT"
@@ -734,7 +734,7 @@ Library {
 	  MaskIconUnits		  "autoscale"
 	  System {
 	    Name		    "Beckhoff"
-	    Location		    [836, 50, 1598, 614]
+	    Location		    [836, 50, 1598, 748]
 	    Open		    off
 	    ModelBrowserVisibility  off
 	    ModelBrowserWidth	    200
@@ -747,6 +747,46 @@ Library {
 	    TiledPageScale	    1
 	    ShowPageBoundaries	    off
 	    ZoomFactor		    "100"
+	    Block {
+	      BlockType		      "S-Function"
+	      Name		      "EK1914_0"
+	      SID		      274
+	      Ports		      [2, 2]
+	      Position		      [630, 201, 700, 239]
+	      BackgroundColor	      "yellow"
+	      AttributesFormatString  "EK1914\\nM:0 Idx:1"
+	      FunctionName	      "ec_slave3"
+	      Parameters	      "Address,rv.SlaveConfig,rv.PortConfig,debug,tsample"
+	      SFunctionModules	      "'ecrt_support'"
+	      EnableBusSupport	      off
+	      MaskType		      "EK1904"
+	      MaskDescription	      "Beckhoff EtherCAT SAFE digital input/output coupler"
+	      MaskHelp		      "web(etherlab_help_path('ek1914.html'), '-helpbrowser');"
+	      MaskPromptString	      "Master|Slave Index|Device Model |Standard IO|Safe IO|Sample Time (-1 for inherited)|Rev"
+	      "ision|Debug"
+	      MaskStyleString	      "edit,edit,popup(EK1914),checkbox,checkbox,edit,edit,edit"
+	      MaskTunableValueString  "off,off,off,off,off,off,off,off"
+	      MaskCallbackString      "|||||||"
+	      MaskEnableString	      "on,on,off,on,on,on,off,on"
+	      MaskVisibilityString    "on,on,off,on,on,on,off,off"
+	      MaskToolTipString	      "on,on,on,on,on,on,on,on"
+	      MaskVariables	      "master=@1;index=@2;model=&3;stdio=@4;safeio=@5;tsample=@6;revision=&7;debug=@8;"
+	      MaskInitialization      "Address = EtherCATSlave.formatAddress(master,index,tsample);\n\nrv = ek1914(stdio, saf"
+	      "eio);\n\ntext = sprintf('%s\\\\nM:%i Idx:%s', model, master, mat2str(index));\nif numel(rv.PortConfig.input) > "
+	      "1 || numel(rv.PortConfig.output) > 1\n    EtherCATSlave.setPortNames(...\n        {rv.PortConfig.input.portname"
+	      "},...\n        {rv.PortConfig.output.portname});\n\n    set_param(gcbh,'AttributesFormatString',text);\nelse\n "
+	      "   set_param(gcbh,'AttributesFormatString','');\n    set_param(gcbh,'MaskDisplay', strcat('disp(''',text,''')')"
+	      ");\nend"
+	      MaskDisplay	      "port_label('input', 1, 'FSoE')\nport_label('input', 2, 'StdOut')\nport_label('output', 1, 'F"
+	      "SoE')\nport_label('output', 2, 'StdIn')\n"
+	      MaskSelfModifiable      on
+	      MaskIconFrame	      on
+	      MaskIconOpaque	      on
+	      MaskIconRotate	      "none"
+	      MaskPortRotate	      "default"
+	      MaskIconUnits	      "autoscale"
+	      MaskValueString	      "0|1|EK1914|on|off|-1||"
+	    }
 	    Block {
 	      BlockType		      "S-Function"
 	      Name		      "EL1262_0"
@@ -790,6 +830,38 @@ Library {
 	    }
 	    Block {
 	      BlockType		      "S-Function"
+	      Name		      "EL1904_0"
+	      SID		      275
+	      Ports		      [1, 1]
+	      Position		      [35, 501, 105, 539]
+	      BackgroundColor	      "yellow"
+	      FunctionName	      "ec_slave3"
+	      Parameters	      "Address,rv.SlaveConfig,rv.PortConfig,debug,tsample"
+	      SFunctionModules	      "'ecrt_support'"
+	      EnableBusSupport	      off
+	      MaskType		      "EL1904"
+	      MaskDescription	      "Beckhoff EtherCAT SAFE digital input"
+	      MaskHelp		      "web(etherlab_help_path('el1904.html'), '-helpbrowser');"
+	      MaskPromptString	      "Master|Slave Index|Device Model |Safe inputs|Sample Time (-1 for inherited)|Revision|De"
+	      "bug"
+	      MaskStyleString	      "edit,edit,popup(EL1904),checkbox,edit,edit,edit"
+	      MaskTunableValueString  "off,off,off,off,off,off,off"
+	      MaskCallbackString      "||||||"
+	      MaskEnableString	      "on,on,off,on,on,off,on"
+	      MaskVisibilityString    "on,on,off,on,on,off,off"
+	      MaskToolTipString	      "on,on,on,on,on,on,on"
+	      MaskVariables	      "master=@1;index=@2;model=&3;safein=@4;tsample=@5;revision=&6;debug=@7;"
+	      MaskInitialization      "Address = EtherCATSlave.formatAddress(master,index,tsample);\n\nrv = el1904(safein);"
+	      MaskDisplay	      "fprintf('%s\\nM:%i Idx:%s', model, master, mat2str(index))\n\n"
+	      MaskIconFrame	      on
+	      MaskIconOpaque	      on
+	      MaskIconRotate	      "none"
+	      MaskPortRotate	      "default"
+	      MaskIconUnits	      "autoscale"
+	      MaskValueString	      "0|1|EL1904|off|-1||"
+	    }
+	    Block {
+	      BlockType		      "S-Function"
 	      Name		      "EL1xxx_0"
 	      SID		      37
 	      Ports		      [0, 1]
@@ -828,7 +900,7 @@ Library {
 	      Name		      "EL2262_0"
 	      SID		      273
 	      Ports		      [1]
-	      Position		      [35, 441, 105, 479]
+	      Position		      [35, 436, 105, 474]
 	      BackgroundColor	      "[0.909804, 0.819608, 0.321569]"
 	      FunctionName	      "ec_slave3"
 	      Parameters	      "Address,rv.SlaveConfig,rv.PortConfig,debug,tsample"
@@ -863,6 +935,38 @@ Library {
 	      MaskTabNameString	      "Main,Main,Main,Main,Main,Main,Main,Oversampling/DC,Oversampling/DC,Oversampling/DC,Ove"
 	      "rsampling/DC,Oversampling/DC,Oversampling/DC,Oversampling/DC,Oversampling/DC,Oversampling/DC,Oversampling/DC,Ov"
 	      "ersampling/DC"
+	    }
+	    Block {
+	      BlockType		      "S-Function"
+	      Name		      "EL2904_0"
+	      SID		      276
+	      Ports		      [1, 1]
+	      Position		      [35, 566, 105, 604]
+	      BackgroundColor	      "yellow"
+	      FunctionName	      "ec_slave3"
+	      Parameters	      "Address,rv.SlaveConfig,rv.PortConfig,debug,tsample"
+	      SFunctionModules	      "'ecrt_support'"
+	      EnableBusSupport	      off
+	      MaskType		      "EL2904"
+	      MaskDescription	      "Beckhoff EtherCAT SAFE digital output"
+	      MaskHelp		      "web(etherlab_help_path('el2904.html'), '-helpbrowser');"
+	      MaskPromptString	      "Master|Slave Index|Device Model |Safe outputs|Sample Time (-1 for inherited)|Revision|D"
+	      "ebug"
+	      MaskStyleString	      "edit,edit,popup(EL2904),checkbox,edit,edit,edit"
+	      MaskTunableValueString  "off,off,off,off,off,off,off"
+	      MaskCallbackString      "||||||"
+	      MaskEnableString	      "on,on,off,on,on,off,on"
+	      MaskVisibilityString    "on,on,off,on,on,off,off"
+	      MaskToolTipString	      "on,on,on,on,on,on,on"
+	      MaskVariables	      "master=@1;index=@2;model=&3;safeout=@4;tsample=@5;revision=&6;debug=@7;"
+	      MaskInitialization      "Address = EtherCATSlave.formatAddress(master,index,tsample);\n\nrv = el2904(safeout);\n"
+	      MaskDisplay	      "fprintf('%s\\nM:%i Idx:%s', model, master, mat2str(index))"
+	      MaskIconFrame	      on
+	      MaskIconOpaque	      on
+	      MaskIconRotate	      "none"
+	      MaskPortRotate	      "default"
+	      MaskIconUnits	      "autoscale"
+	      MaskValueString	      "0|1|EL2904|off|-1||"
 	    }
 	    Block {
 	      BlockType		      "S-Function"
@@ -1218,9 +1322,39 @@ Library {
 	      MaskHelp		      "web(etherlab_help_path('el320x.html'), '-helpbrowser');"
 	      MaskPromptString	      "Master|Slave Index|Device Model |Revision|Filter|Vector Output|Status Port|Sample Time|"
 	      "Debug|RTD-Element|Technology|Wire Calibration (1/32 Ohm)|RTD-Element|Technology|Wire Calibration (1/32 Ohm)|RTD"
-	      "-Element|Technology|Wire Calibration (1/32 Ohm)|RTD-Element|Technology|Wire Calibration (1/32 Ohm)"
-	      MaskStyleString	      "edit,edit,popup(EL3201|EL3201-0010|EL3201-0020|EL3202|EL3202-0010|EL3204),edit,popup(Off"
-	      "|50 Hz|60 Hz|100 Hz|500 Hz|1 kHz|2 kHz|3.75 kHz|7.5 kHz|15 kHz|30 kHz|5 Hz|10 Hz),checkbox,checkbox,edit,edit,p"
+	      "-Element|Technology|Wire Calibration (1/32 Ohm)|RTD-Element|Technology|Wire Calibration (1/32 Ohm)|RTD-Element|"
+	      "Technology|Wire Calibration (1/32 Ohm)|RTD-Element|Technology|Wire Calibration (1/32 Ohm)|RTD-Element|Technolog"
+	      "y|Wire Calibration (1/32 Ohm)|RTD-Element|Technology|Wire Calibration (1/32 Ohm)"
+	      MaskStyleString	      "edit,edit,popup(EL3201|EL3201-0010|EL3201-0020|EL3202|EL3202-0010|EL3202-0020|EL3204|EL3"
+	      "204-0200|EL3208|EL3214),edit,popup(Off|50 Hz|60 Hz|100 Hz|500 Hz|1 kHz|2 kHz|3.75 kHz|7.5 kHz|15 kHz|30 kHz|5 H"
+	      "z|10 Hz),checkbox,checkbox,edit,edit,popup(Pt100 -200...850C|Ni100 -60...250C|Pt1000 -200...850C|Pt500 -200...8"
+	      "50C|Pt200 -200...850C|Ni1000 -60...250C|Ni1000 100C: 1500 Ohm (-30...60C)|Ni120 -60...320C|1/16 Ohm (10 .. 4095"
+	      " Ohm) |1/64 Ohm (10 .. 1047 Ohm) |KT100/110/130/210/230 KTY10/11/13/16/19  |KTY81/82-110/120/150 (-50...150C)|K"
+	      "TY81-121|KTY81-122|KTY81-151|KTY81-152|KTY81/82-210/220/250|KTY81-221|KTY81-222|KTY81-251|KTY81-252|KTY83-110/1"
+	      "20/150 (-50...175C)|KTY83-121|KTY83-122|KTY83-151|KTY83-152|KTY84-130/150 (-40...300C)|KTY84-151|KTY21/23-6 (-5"
+	      "0...150C)|KTY1x-5|KTY1x-7|KTY21/23-5|KTY21/23-7),popup(2-wire|3-wire|4-wire|Not connected),edit,popup(Pt100 -20"
+	      "0...850C|Ni100 -60...250C|Pt1000 -200...850C|Pt500 -200...850C|Pt200 -200...850C|Ni1000 -60...250C|Ni1000 100C:"
+	      " 1500 Ohm (-30...60C)|Ni120 -60...320C|1/16 Ohm (10 .. 4095 Ohm) |1/64 Ohm (10 .. 1047 Ohm) |KT100/110/130/210/"
+	      "230 KTY10/11/13/16/19  |KTY81/82-110/120/150 (-50...150C)|KTY81-121|KTY81-122|KTY81-151|KTY81-152|KTY81/82-210/"
+	      "220/250|KTY81-221|KTY81-222|KTY81-251|KTY81-252|KTY83-110/120/150 (-50...175C)|KTY83-121|KTY83-122|KTY83-151|KT"
+	      "Y83-152|KTY84-130/150 (-40...300C)|KTY84-151|KTY21/23-6 (-50...150C)|KTY1x-5|KTY1x-7|KTY21/23-5|KTY21/23-7),pop"
+	      "up(2-wire|3-wire|4-wire|Not connected),edit,popup(Pt100 -200...850C|Ni100 -60...250C|Pt1000 -200...850C|Pt500 -"
+	      "200...850C|Pt200 -200...850C|Ni1000 -60...250C|Ni1000 100C: 1500 Ohm (-30...60C)|Ni120 -60...320C|1/16 Ohm (10 "
+	      ".. 4095 Ohm) |1/64 Ohm (10 .. 1047 Ohm) |KT100/110/130/210/230 KTY10/11/13/16/19  |KTY81/82-110/120/150 (-50..."
+	      "150C)|KTY81-121|KTY81-122|KTY81-151|KTY81-152|KTY81/82-210/220/250|KTY81-221|KTY81-222|KTY81-251|KTY81-252|KTY8"
+	      "3-110/120/150 (-50...175C)|KTY83-121|KTY83-122|KTY83-151|KTY83-152|KTY84-130/150 (-40...300C)|KTY84-151|KTY21/2"
+	      "3-6 (-50...150C)|KTY1x-5|KTY1x-7|KTY21/23-5|KTY21/23-7),popup(2-wire|3-wire|4-wire|Not connected),edit,popup(Pt"
+	      "100 -200...850C|Ni100 -60...250C|Pt1000 -200...850C|Pt500 -200...850C|Pt200 -200...850C|Ni1000 -60...250C|Ni100"
+	      "0 100C: 1500 Ohm (-30...60C)|Ni120 -60...320C|1/16 Ohm (10 .. 4095 Ohm) |1/64 Ohm (10 .. 1047 Ohm) |KT100/110/1"
+	      "30/210/230 KTY10/11/13/16/19  |KTY81/82-110/120/150 (-50...150C)|KTY81-121|KTY81-122|KTY81-151|KTY81-152|KTY81/"
+	      "82-210/220/250|KTY81-221|KTY81-222|KTY81-251|KTY81-252|KTY83-110/120/150 (-50...175C)|KTY83-121|KTY83-122|KTY83"
+	      "-151|KTY83-152|KTY84-130/150 (-40...300C)|KTY84-151|KTY21/23-6 (-50...150C)|KTY1x-5|KTY1x-7|KTY21/23-5|KTY21/23"
+	      "-7),popup(2-wire|3-wire|4-wire|Not connected),edit,popup(Pt100 -200...850C|Ni100 -60...250C|Pt1000 -200...850C|"
+	      "Pt500 -200...850C|Pt200 -200...850C|Ni1000 -60...250C|Ni1000 100C: 1500 Ohm (-30...60C)|Ni120 -60...320C|1/16 O"
+	      "hm (10 .. 4095 Ohm) |1/64 Ohm (10 .. 1047 Ohm) |KT100/110/130/210/230 KTY10/11/13/16/19  |KTY81/82-110/120/150 "
+	      "(-50...150C)|KTY81-121|KTY81-122|KTY81-151|KTY81-152|KTY81/82-210/220/250|KTY81-221|KTY81-222|KTY81-251|KTY81-2"
+	      "52|KTY83-110/120/150 (-50...175C)|KTY83-121|KTY83-122|KTY83-151|KTY83-152|KTY84-130/150 (-40...300C)|KTY84-151|"
+	      "KTY21/23-6 (-50...150C)|KTY1x-5|KTY1x-7|KTY21/23-5|KTY21/23-7),popup(2-wire|3-wire|4-wire|Not connected),edit,p"
 	      "opup(Pt100 -200...850C|Ni100 -60...250C|Pt1000 -200...850C|Pt500 -200...850C|Pt200 -200...850C|Ni1000 -60...250"
 	      "C|Ni1000 100C: 1500 Ohm (-30...60C)|Ni120 -60...320C|1/16 Ohm (10 .. 4095 Ohm) |1/64 Ohm (10 .. 1047 Ohm) |KT10"
 	      "0/110/130/210/230 KTY10/11/13/16/19  |KTY81/82-110/120/150 (-50...150C)|KTY81-121|KTY81-122|KTY81-151|KTY81-152"
@@ -1237,28 +1371,28 @@ Library {
 	      ") |KT100/110/130/210/230 KTY10/11/13/16/19  |KTY81/82-110/120/150 (-50...150C)|KTY81-121|KTY81-122|KTY81-151|KT"
 	      "Y81-152|KTY81/82-210/220/250|KTY81-221|KTY81-222|KTY81-251|KTY81-252|KTY83-110/120/150 (-50...175C)|KTY83-121|K"
 	      "TY83-122|KTY83-151|KTY83-152|KTY84-130/150 (-40...300C)|KTY84-151|KTY21/23-6 (-50...150C)|KTY1x-5|KTY1x-7|KTY21"
-	      "/23-5|KTY21/23-7),popup(2-wire|3-wire|4-wire|Not connected),edit,popup(Pt100 -200...850C|Ni100 -60...250C|Pt100"
-	      "0 -200...850C|Pt500 -200...850C|Pt200 -200...850C|Ni1000 -60...250C|Ni1000 100C: 1500 Ohm (-30...60C)|Ni120 -60"
-	      "...320C|1/16 Ohm (10 .. 4095 Ohm) |1/64 Ohm (10 .. 1047 Ohm) |KT100/110/130/210/230 KTY10/11/13/16/19  |KTY81/8"
-	      "2-110/120/150 (-50...150C)|KTY81-121|KTY81-122|KTY81-151|KTY81-152|KTY81/82-210/220/250|KTY81-221|KTY81-222|KTY"
-	      "81-251|KTY81-252|KTY83-110/120/150 (-50...175C)|KTY83-121|KTY83-122|KTY83-151|KTY83-152|KTY84-130/150 (-40...30"
-	      "0C)|KTY84-151|KTY21/23-6 (-50...150C)|KTY1x-5|KTY1x-7|KTY21/23-5|KTY21/23-7),popup(2-wire|3-wire|4-wire|Not con"
-	      "nected),edit"
-	      MaskTunableValueString  "off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,off"
-	      MaskCallbackString      "||el320x_1.modelChanged()||||||||||||||||||"
-	      MaskEnableString	      "on,on,on,on,on,on,on,on,on,on,on,on,off,off,off,off,off,off,off,off,off"
-	      MaskVisibilityString    "on,on,on,off,on,on,on,on,off,on,on,on,on,on,on,on,on,on,on,on,on"
-	      MaskToolTipString	      "on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on"
+	      "/23-5|KTY21/23-7),popup(2-wire|3-wire|4-wire|Not connected),edit"
+	      MaskTunableValueString  "off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,of"
+	      "f,off,off,off,off,off,off,off,off,off,off,off"
+	      MaskCallbackString      "||el320x_1.modelChanged()||||||||||||||||||||||||||||||"
+	      MaskEnableString	      "on,on,on,on,on,on,on,on,on,on,on,on,off,off,off,off,off,off,off,off,off,off,off,off,off"
+	      ",off,off,off,off,off,off,off,off"
+	      MaskVisibilityString    "on,on,on,off,on,on,on,on,off,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,"
+	      "on,on,on,on,on"
+	      MaskToolTipString	      "on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on"
+	      ",on,on,on,on"
 	      MaskVariables	      "master=@1;index=@2;model=&3;revision=&4;filter=@5;vector=@6;status=@7;tsample=@8;debug=@9;"
 	      "sdo_01=@10;sdo_02=@11;sdo_03=@12;sdo_04=@13;sdo_05=@14;sdo_06=@15;sdo_07=@16;sdo_08=@17;sdo_09=@18;sdo_10=@19;s"
-	      "do_11=@20;sdo_12=@21;"
+	      "do_11=@20;sdo_12=@21;sdo_13=@22;sdo_14=@23;sdo_15=@24;sdo_16=@25;sdo_17=@26;sdo_18=@27;sdo_19=@28;sdo_20=@29;sd"
+	      "o_21=@30;sdo_22=@31;sdo_23=@32;sdo_24=@33;"
 	      MaskInitialization      "Address = EtherCATSlave.formatAddress(master,index,tsample);\n\nrv = el320x_1(model).c"
-	      "onfigure(status,vector,filter,...\n    [sdo_01,sdo_04,sdo_07,sdo_10] - 1,...\n    [sdo_02,sdo_05,sdo_08,sdo_11]"
-	      " - 1,...\n    [sdo_03,sdo_06,sdo_09,sdo_12]);\n\nif vector || model(6) == '1'\n    set_param(gcb,'AttributesFor"
-	      "matString','');\n\n    set_param(gcb,'MaskDisplay',...\n        sprintf('disp(''%s\\\\nM:%i Idx:%s'')',...\n   "
-	      "     model,master,mat2str(index)))\nelse\n    EtherCATSlave.setPortNames({},...\n        {rv.PortConfig.output."
-	      "portname})\n    \n    set_param(gcb,'AttributesFormatString',...\n        sprintf('%s\\nM:%i Idx:%s',...\n     "
-	      "   model,master,mat2str(index)))\nend\n"
+	      "onfigure(status,vector,filter,...\n    [sdo_01,sdo_04,sdo_07,sdo_10,sdo_13,sdo_16,sdo_19,sdo_22] - 1,...\n    ["
+	      "sdo_02,sdo_05,sdo_08,sdo_11,sdo_14,sdo_17,sdo_20,sdo_23] - 1,...\n    [sdo_03,sdo_06,sdo_09,sdo_12,sdo_15,sdo_1"
+	      "8,sdo_21,sdo_24]);\n\nif vector || model(6) == '1'\n    set_param(gcb,'AttributesFormatString','');\n\n    set_"
+	      "param(gcb,'MaskDisplay',...\n        sprintf('disp(''%s\\\\nM:%i Idx:%s'')',...\n        model,master,mat2str(i"
+	      "ndex)))\nelse\n    EtherCATSlave.setPortNames({},...\n        {rv.PortConfig.output.portname})\n    \n    set_p"
+	      "aram(gcb,'AttributesFormatString',...\n        sprintf('%s\\nM:%i Idx:%s',...\n        model,master,mat2str(ind"
+	      "ex)))\nend\n"
 	      MaskDisplay	      "disp('EL3201\\nM:0 Idx:1')"
 	      MaskSelfModifiable      on
 	      MaskIconFrame	      on
@@ -1267,9 +1401,11 @@ Library {
 	      MaskPortRotate	      "default"
 	      MaskIconUnits	      "autoscale"
 	      MaskValueString	      "0|1|EL3201||Off|on|off|0|0|Pt100 -200...850C|2-wire|0|Pt100 -200...850C|2-wire|0|Pt100 -"
-	      "200...850C|2-wire|0|Pt100 -200...850C|2-wire|0"
+	      "200...850C|2-wire|0|Pt100 -200...850C|2-wire|0|Pt100 -200...850C|2-wire|0|Pt100 -200...850C|2-wire|0|Pt100 -200"
+	      "...850C|2-wire|0|Pt100 -200...850C|2-wire|0"
 	      MaskTabNameString	      "Main,Main,Main,Main,Main,Main,Main,Main,Main,Sensor 1,Sensor 1,Sensor 1,Sensor 2,Senso"
-	      "r 2,Sensor 2,Sensor 3,Sensor 3,Sensor 3,Sensor 4,Sensor 4,Sensor 4"
+	      "r 2,Sensor 2,Sensor 3,Sensor 3,Sensor 3,Sensor 4,Sensor 4,Sensor 4,Sensor 5,Sensor 5,Sensor 5,Sensor 6,Sensor 6"
+	      ",Sensor 6,Sensor 7,Sensor 7,Sensor 7,Sensor 8,Sensor 8,Sensor 8"
 	    }
 	    Block {
 	      BlockType		      "S-Function"
@@ -1490,6 +1626,52 @@ Library {
 	      "ed Clocks,Distributed Clocks,Distributed Clocks,Distributed Clocks,CoE #x8000,CoE #x8000,CoE #x8000,CoE #x8000,"
 	      "CoE #x8000,CoE #x8000,CoE #x8000,CoE #x8000,CoE #x8000,CoE #x8000,CoE #x8000,CoE #x8000,CoE #x8000,CoE #x80x0,C"
 	      "oE #x80x0,CoE #x80x0,CoE #x80x0"
+	    }
+	    Block {
+	      BlockType		      "S-Function"
+	      Name		      "EL3403_0"
+	      SID		      277
+	      Ports		      [0, 5]
+	      Position		      [380, 431, 465, 489]
+	      BackgroundColor	      "[0.909804, 0.819608, 0.321569]"
+	      AttributesFormatString  "EL3403\nM:0 Idx:1"
+	      LoadFcn		      "el3403().checkModelName()"
+	      FunctionName	      "ec_slave3"
+	      Parameters	      "Address,rv.SlaveConfig,rv.PortConfig,debug,tsample"
+	      SFunctionModules	      "'ecrt_support'"
+	      EnableBusSupport	      off
+	      MaskType		      "EL3403"
+	      MaskDescription	      "Beckhoff 3-phase power measurement terminal"
+	      MaskHelp		      "web(etherlab_help_path('el3403.html'), '-helpbrowser');"
+	      MaskPromptString	      "Master|Slave Index|Device Model |Variants|Current Transformation Ratio 1:|Voltage Trans"
+	      "formation Ratio 1:|Sample Time (-1 inherited)|Revision|Debug|Low pass filter (F800:01)|High pass filter (F800:0"
+	      "2)|Measuring method (F800:03)|Frequency channel (F800:05)|Reference channel (F800:0E)|Zero cross timeout (F800:"
+	      "21)|Line cycle (F800:22)"
+	      MaskStyleString	      "edit,edit,popup(EL3403|EL3403-0010|EL3403-0026|EL3403-0100|EL3403-0111|EL3403-0126),chec"
+	      "kbox,edit,edit,edit,edit,edit,checkbox,checkbox,popup(3-wire delta; 4-wire star),popup(Phase L1|Phase L2|Phase "
+	      "L3),popup(Phase L1|Phase L2|Phase L3),edit,edit"
+	      MaskTunableValueString  "off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,off"
+	      MaskCallbackString      "|||||||||||||||"
+	      MaskEnableString	      "on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on"
+	      MaskVisibilityString    "on,on,on,on,on,on,on,off,off,on,on,on,on,on,on,on"
+	      MaskToolTipString	      "on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on"
+	      MaskVariables	      "master=@1;index=@2;model=&3;variant=@4;current=@5;voltage=@6;tsample=@7;revision=&8;debug="
+	      "@9;lp=@10;hp=@11;method=@12;freq=@13;ref=@14;zerocross=@15;cycle=@16;"
+	      MaskInitialization      "Address = EtherCATSlave.formatAddress(master,index,tsample);\n\nrv = el3403(model).con"
+	      "figure(variant,current,voltage,...\n    [lp, hp, method-1, freq-1, ref-1, zerocross, cycle]);\n\nEtherCATSlave."
+	      "setPortNames(...\n    {rv.PortConfig.input.portname},...\n    {rv.PortConfig.output.portname});\n\nset_param(gc"
+	      "b,'AttributesFormatString',...\n    sprintf('%s\\nM:%i Idx:%s',...\n            model,master,mat2str(index)))\n"
+	      MaskDisplay	      "port_label('output', 1, 'Current')\nport_label('output', 2, 'Voltage')\nport_label('output',"
+	      " 3, 'Power')\nport_label('output', 4, 'Zero Crossing Fail')\nport_label('output', 5, 'Seq. Fail')\n"
+	      MaskSelfModifiable      on
+	      MaskIconFrame	      on
+	      MaskIconOpaque	      on
+	      MaskIconRotate	      "none"
+	      MaskPortRotate	      "default"
+	      MaskIconUnits	      "normalized"
+	      MaskValueString	      "0|1|EL3403|off|1|1|-1||0|on|on|3-wire delta; 4-wire star|Phase L1|Phase L1|5|10"
+	      MaskTabNameString	      "Main,Main,Main,Main,Main,Main,Main,Main,Main,Settings,Settings,Settings,Settings,Setti"
+	      "ngs,Settings,Settings"
 	    }
 	    Block {
 	      BlockType		      "S-Function"
@@ -1943,7 +2125,7 @@ Library {
 	      BlockType		      "S-Function"
 	      Name		      "EL51xx_0"
 	      SID		      114
-	      Ports		      [0, 3]
+	      Ports		      [2, 3]
 	      Position		      [515, 205, 590, 245]
 	      BackgroundColor	      "yellow"
 	      AttributesFormatString  "EL5101\nM:0 Idx:1"
@@ -1988,12 +2170,12 @@ Library {
 	      "ePDO|el51xx.updatePDO|el51xx.updatePDO|el51xx.updatePDO|el51xx.updatePDO|el51xx.updatePDO|el51xx.updatePDO|el51"
 	      "xx.updatePDO|el51xx.updatePDO|||EtherCATSlave.updateCustomDCEnable()|||||||||||||||||||||||||||||||||||||||||||"
 	      "||||||||||"
-	      MaskEnableString	      "on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,off,off,off,off,off,off,off,of"
-	      "f,off,off,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on"
-	      ",on,on,on,on,on,on,on,on,on"
-	      MaskVisibilityString    "on,on,on,off,on,on,on,on,on,on,on,on,on,on,on,on,on,off,on,on,on,on,on,on,on,on,on,on,"
-	      "on,off,off,off,off,off,off,off,on,off,on,on,off,off,off,on,on,off,on,on,on,on,on,on,off,off,off,off,on,off,on,o"
-	      "n,off,off,off,on,on,off,on,on,on,on,on,on"
+	      MaskEnableString	      "on,on,on,on,on,on,off,off,on,on,on,off,off,off,off,off,on,on,on,off,off,off,off,off,off"
+	      ",off,off,off,off,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,o"
+	      "n,on,on,on,on,on,on,on,on,on,on,on"
+	      MaskVisibilityString    "on,on,on,off,off,on,on,on,off,on,on,on,on,on,on,on,on,off,on,on,on,on,on,on,on,on,on,o"
+	      "n,on,on,on,on,on,on,off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,off,on,off,off,off,"
+	      "off,off,off,off,off,off,off,off,off,off,off,off,off,off,off"
 	      MaskToolTipString	      "on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on"
 	      ",on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on,on"
 	      ",on,on,on,on,on,on"
@@ -2019,18 +2201,18 @@ Library {
 	      "_shift1, dc_shift1_factor]);     \n\nEtherCATSlave.setPortNames(...\n    {rv.PortConfig.input.portname},...\n  "
 	      "  {rv.PortConfig.output.portname});\n\nset_param(gcb,'AttributesFormatString',...\n    sprintf('%s\\nM:%i Idx:%"
 	      "s',...\n            model,master,mat2str(index)))\n\n"
-	      MaskDisplay	      "port_label('output', 1, 'bool[13]')\nport_label('output', 2, 'Counter')\nport_label('output'"
-	      ", 3, 'Latch')\n"
+	      MaskDisplay	      "port_label('input', 1, 'Ctrl')\nport_label('input', 2, 'Value')\nport_label('output', 1, 'St"
+	      "atus')\nport_label('output', 2, 'Counter')\nport_label('output', 3, 'Latch')\n"
 	      MaskSelfModifiable      on
 	      MaskIconFrame	      on
 	      MaskIconOpaque	      on
 	      MaskIconRotate	      "none"
 	      MaskPortRotate	      "default"
 	      MaskIconUnits	      "autoscale"
-	      MaskValueString	      "0|1|EL5152||off|off|off|off|off|off|off|off|off|off|off|off|-1|0|FreeRun/SM-Synchron|hex"
-	      "2dec('320')    % EL51x1: '320'; El5152: '720'|0|1|0|0|off|0|1|0|0|off|off|off|on|off|off|off|off|Enable pos. ga"
-	      "te|off|off|on|on|off|off|us|Rising edge|10000|100|100|100|100|1600|100|65535|off|off|off|Enable pos. gate|off|o"
-	      "ff|on|on|off|off|us|Rising edge|10000|100|100|100|500|1600"
+	      MaskValueString	      "0|1|EL5101||off|on|off|off|off|on|off|off|off|off|off|off|-1|0|FreeRun/SM-Synchron|hex2d"
+	      "ec('320')    % EL51x1: '320'; El5152: '720'|0|1|0|0|off|0|1|0|0|off|off|off|on|off|off|off|off|Enable pos. gate"
+	      "|off|off|on|on|off|off|us|Rising edge|10000|100|100|100|100|1600|100|65535|off|off|off|Enable pos. gate|off|off"
+	      "|on|on|off|off|us|Rising edge|10000|100|100|100|500|1600"
 	      MaskTabNameString	      "Main,Main,Main,Main,Main,Main,Main,Main,Main,Main,Main,Main,Main,Main,Main,Main,Main,M"
 	      "ain,Distributed Clocks,Distributed Clocks,Distributed Clocks,Distributed Clocks,Distributed Clocks,Distributed "
 	      "Clocks,Distributed Clocks,Distributed Clocks,Distributed Clocks,Distributed Clocks,Distributed Clocks,CoE #x800"
@@ -3262,30 +3444,28 @@ Library {
 	  BlockType		  "S-Function"
 	  Name			  "Message"
 	  SID			  271
-	  Ports			  [2, 1]
+	  Ports			  [1, 1]
 	  Position		  [55, 186, 125, 224]
 	  LibraryVersion	  "1.1668"
 	  FunctionName		  "message"
-	  Parameters		  "prio,message_text,reset,invert,confirm,tsample"
+	  Parameters		  "prio,reset,invert,confirm,tsample"
 	  EnableBusSupport	  off
 	  MaskType		  "Generate system message"
 	  MaskDescription	  "This block generates a system message when the input port 1 is true.\n\nThe current time is outp"
 	  "ut on output port."
 	  MaskHelp		  "This block generates a system message when the input port 1 is true.\nSystem messages are logged and k"
-	  "ept in history.\n\n<h2>Parameters:</h2>\n\n<h4>Priority</h4>Select the message priority\n\n<h4>Message List</h4> En"
-	  "ter the message to be printed.\nIt must be a cell array of strings and have the same number of\nelements as port 1."
-	  "\n\n<h4>External Reset</h4>Message will be reset on external signal.\n\n<h4>Invert Input</h4>Invert input (0 = Gene"
-	  "rate message)\n\n<h4>Input confirm delay</h4>Delay time before message is raised.\n"
-	  MaskPromptString	  "Priority|Message List|External Reset|Invert Input|Input confirm delay [s]|Sample Time (-1 for i"
-	  "nherited)"
-	  MaskStyleString	  "popup(Emergency|Alert|Critical|Error|Warning|Notice|Information|Debug),edit,checkbox,checkbox,ed"
-	  "it,edit"
-	  MaskTunableValueString  "off,off,off,off,on,off"
-	  MaskCallbackString	  "|||||"
-	  MaskEnableString	  "on,on,on,on,on,on"
-	  MaskVisibilityString	  "on,on,on,on,on,on"
-	  MaskToolTipString	  "on,on,on,on,on,on"
-	  MaskVariables		  "prio=@1;message_text=@2;reset=@3;invert=@4;confirm=@5;tsample=@6;"
+	  "ept in history.\n\n<h2>Parameters:</h2>\n\n<h4>Priority</h4>Select the message priority\n\n<h4>External Reset</h4>M"
+	  "essage will be reset on external signal.\n\n<h4>Invert Input</h4>Invert input (0 = Generate message)\n\n<h4>Input c"
+	  "onfirm delay</h4>Delay time before message is raised.\n"
+	  MaskPromptString	  "Priority|External Reset|Invert Input|Input confirm delay [s]|Sample Time (-1 for inherited)"
+	  MaskStyleString	  "popup(Emergency|Alert|Critical|Error|Warning|Notice|Information|Debug),checkbox,checkbox,edit,ed"
+	  "it"
+	  MaskTunableValueString  "off,off,off,on,off"
+	  MaskCallbackString	  "||||"
+	  MaskEnableString	  "on,on,on,on,on"
+	  MaskVisibilityString	  "on,on,on,on,on"
+	  MaskToolTipString	  "on,on,on,on,on"
+	  MaskVariables		  "prio=@1;reset=@2;invert=@3;confirm=@4;tsample=@5;"
 	  MaskInitialization	  "m = {'Emergency', 'Alert', 'Critical', 'Error', ...\n    'Warning', 'Notice', 'Information', "
 	  "'Debug'};\ncmap = [\n    1 0 1;\n    1 0 1;\n    1 0 1;\n    1 0 0;\n    1 0.5 0.0;\n    0 0 1;\n    0 0 1;\n    0 "
 	  "0 1;\n    ]; \nc = cmap(prio,:);\npriority = m{prio};"
@@ -3295,7 +3475,7 @@ Library {
 	  MaskIconRotate	  "none"
 	  MaskPortRotate	  "default"
 	  MaskIconUnits		  "autoscale"
-	  MaskValueString	  "Error|{}|on|off|[]|-1"
+	  MaskValueString	  "Error|off|off||-1"
 	}
 	Block {
 	  BlockType		  "S-Function"
