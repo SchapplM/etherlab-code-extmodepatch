@@ -15,11 +15,12 @@
 #include <string.h>
 
 #define PRIORITY      (uint_T)(mxGetScalar(ssGetSFcnParam(S,0)))
-#define EXTRESET   (boolean_T)(mxGetScalar(ssGetSFcnParam(S,1)))
-#define INVERT     (boolean_T)(mxGetScalar(ssGetSFcnParam(S,2)))
-#define CONFIRM                           (ssGetSFcnParam(S,3))
-#define TSAMPLE               (mxGetScalar(ssGetSFcnParam(S,4)))
-#define PARAM_COUNT                                         5
+#define MESSAGELIST                       (ssGetSFcnParam(S,1))
+#define EXTRESET   (boolean_T)(mxGetScalar(ssGetSFcnParam(S,2)))
+#define INVERT     (boolean_T)(mxGetScalar(ssGetSFcnParam(S,3)))
+#define CONFIRM                           (ssGetSFcnParam(S,4))
+#define TSAMPLE               (mxGetScalar(ssGetSFcnParam(S,5)))
+#define PARAM_COUNT                                         6
 
 /* Function: mdlInitializeSizes =============================================
  * Abstract:
@@ -29,6 +30,7 @@
 static void mdlInitializeSizes(SimStruct *S)
 {
     int_T i;
+    const mxArray* message_list = MESSAGELIST;
 
     ssSetNumSFcnParams(S, PARAM_COUNT);  /* Number of expected parameters */
     if (ssGetNumSFcnParams(S) != ssGetSFcnParamsCount(S)) {
@@ -41,7 +43,21 @@ static void mdlInitializeSizes(SimStruct *S)
 
     /* Make CONFIRM tunable */
     if (mxGetNumberOfElements(CONFIRM))
-        ssSetSFcnParamTunable(S, 3, SS_PRM_TUNABLE);
+        ssSetSFcnParamTunable(S, 4, SS_PRM_TUNABLE);
+
+    if (!mxIsEmpty(message_list)) {
+        if (mxIsChar(message_list)) {
+            /* For a char array, only one row is allowed */
+            if (mxGetM(message_list) != 1) {
+                ssSetErrorStatus(S, "Message string matrix is not allowed");
+                return;
+            }
+        }
+        else if (!mxIsCell(message_list)) {
+            ssSetErrorStatus(S, "Message list is not a cell array of strings");
+            return;
+        }
+    }
 
     /* Process input ports */
     if (!ssSetNumInputPorts(S, 1 + EXTRESET))
@@ -90,9 +106,19 @@ static void mdlSetInputPortWidth(SimStruct *S, int_T port, int_T width)
     ssSetInputPortWidth(S, port, width);
 
     if (port == 0) {
+        const mxArray* messages = MESSAGELIST;
         int_T confirmCount = mxGetNumberOfElements(CONFIRM);
 
         ssSetOutputPortWidth(S, 0, width);
+
+        int_T m_count = mxIsChar(messages)
+            ? mxGetM(messages)
+            : mxGetNumberOfElements(messages);
+
+        if (m_count && width > m_count) {
+            ssSetErrorStatus(S, "Message list too short");
+            return;
+        }
 
         confirmCount = mxGetNumberOfElements(CONFIRM);
         if (confirmCount
@@ -159,7 +185,7 @@ static void mdlSetWorkWidths(SimStruct *S)
     /* Second parameter is "Confirm" */
     ssSetNumRWork(S, ssGetInputPortWidth(S,0));
 
-    ssRegDlgParamAsRunTimeParam(S, 3, 1, "Confirm", SS_DOUBLE);
+    ssRegDlgParamAsRunTimeParam(S, 4, 1, "Confirm", SS_DOUBLE);
 
     return;
 }
@@ -185,11 +211,79 @@ static void mdlTerminate(SimStruct *S)
         mxFree(ssGetRunTimeParamInfo(S,0)->data);
 }
 
+/* Function: createStringList ==
+ *
+ * Create message string of the form
+ * ["message1","message2",...]
+ *
+ * This function also takes care of escaping special TLC characters \ and "
+ * when found in the string
+ */
+char* createStringList(const mxArray* list, int_T* count)
+{
+    const int numel = mxIsChar(list)
+        ? mxGetM(list) : mxGetNumberOfElements(list);
+    char ** const strList = alloca(numel * sizeof(char*));
+    char *str, *src;
+    char *dst;
+    size_t len = 0;
+    int i;
+
+    *count = numel;
+
+    if (mxIsChar(list)) {
+        /* Fetch string from char array */
+        strList[0] = mxArrayToString(list);
+    }
+    else {
+        /* Fetch string from cell array */
+        for (i = 0; i < numel; ++i)
+            strList[i] = mxArrayToString(mxGetCell(list,i));
+    }
+
+    for (i = 0; i < numel; ++i) {
+            /* Compute string length, adding 1 for every '\' and '"' */
+            for (src = strList[i]; *src; ++src)
+                len += 1 + (*src == '\\' || *src == '"');
+
+            /* Add 3 characters for opening ", closing " and comma separator */
+            len += 3;
+    }
+
+    /* Create memory for string, with 3 more characters
+     * for opening [, closing ] and terminating \0 */
+    str = dst = mxMalloc(len + 3);
+
+    *dst++ = '[';       /* opening */
+    for (i = 0; i < numel; ++i) {
+        if (i)
+            *dst++ = ',';       /* List separator */
+
+        *dst++ = '"';           /* opening apostrophe */
+
+        for (src = strList[i]; *src; ++src) {
+            if (*src == '\\' || *src == '"')
+                *dst++ = '\\';  /* escape backslash */
+            *dst++ = *src;
+        }
+
+        *dst++ = '"';           /* closing apostrophe */
+
+        mxFree(strList[i]);
+    }
+    *dst++ = ']';       /* closing */
+    *dst++ = '\0';      /* terminator */
+
+    return str;
+}
+
 #define MDL_RTW
 static void mdlRTW(SimStruct *S)
 {
     boolean_T invert = INVERT;
     uint32_T priority = PRIORITY;
+    int_T count;
+    char* message = createStringList(MESSAGELIST, &count);
 
     if (!ssWriteRTWWorkVect(S, "PWork", 1, "EventPtr", 1))
         return;
@@ -199,14 +293,19 @@ static void mdlRTW(SimStruct *S)
                 "ConfirmTime", ssGetNumRWork(S)))
         return;
 
-    if (!ssWriteRTWParamSettings(S, 2,
+    if (!ssWriteRTWParamSettings(S, 3,
 
                 SSWRITE_VALUE_DTYPE_NUM,
                 "Priority", &priority, DTINFO(SS_UINT32,0),
 
                 SSWRITE_VALUE_DTYPE_NUM,
-                "Invert", &invert, DTINFO(SS_BOOLEAN,0)))
+                "Invert", &invert, DTINFO(SS_BOOLEAN,0),
+
+                SSWRITE_VALUE_VECT_STR,
+                "MessageList", message, count))
         return;
+
+    mxFree(message);
 }
 
 

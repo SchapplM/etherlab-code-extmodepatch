@@ -1,8 +1,12 @@
 %implements "message" "C"
 
+%include "ETL.tlc"
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %function BlockTypeSetup( block, system) void
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  %<InitETL()>
+
   %<LibAddToCommonIncludes("<time.h>")>
   %<LibAddToCommonIncludes("<pdserv.h>")>
 
@@ -16,6 +20,17 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   %openfile buf
   {
+     %if SIZE(SFcnParamSettings.MessageList,1)
+       %assign message_list_ident = "message_list"
+       static const char* %<message_list_ident>[] = {
+         %foreach i = LibBlockInputSignalWidth(0)
+           "%<STRING(SFcnParamSettings.MessageList[i])>",
+         %endforeach
+       };
+     %else
+       %assign message_list_ident = "NULL"
+     %endif
+
      %assign prio = ["EMERG_EVENT", "ALERT_EVENT", "CRIT_EVENT", ...
         "ERROR_EVENT", "WARN_EVENT", "NOTICE_EVENT", "INFO_EVENT", ...
         "DEBUG_EVENT"]
@@ -24,6 +39,10 @@
          "%<FEVAL("blockpath", LibGetFormattedBlockPath(block))>", \
          %<prio[SFcnParamSettings.Priority-1]>, \
          %<LibBlockInputSignalWidth(0)>);
+
+     pdserv_event_set_text(
+        (struct pdevent*)%<LibBlockPWork(EventPtr,"","",0)>,
+        %<message_list_ident>);
   }
   %closefile buf
 
@@ -34,8 +53,7 @@
 %function Outputs( block, system) Output
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   %%
-  %assign sl_tid = LibGetGlobalTIDFromLocalSFcnTID(0)
-  %assign tid = sl_tid && LibGetTID01EQ() ? sl_tid - 1 : 0
+  %assign tid = ETLBlockTID()
   %%
   %assign invert = SFcnParamSettings.Invert ? "!" : ""
   %%
