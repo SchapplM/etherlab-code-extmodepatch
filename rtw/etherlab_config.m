@@ -53,12 +53,14 @@ function etherlab_config(hDlg,hSrc)
   slConfigUISetEnabled(hDlg,hSrc,'RTWCAPISignals','off');
   slConfigUISetVal(hDlg,hSrc,'RTWCAPIParams','on');
   slConfigUISetEnabled(hDlg,hSrc,'RTWCAPIParams','off');
-  slConfigUISetVal(hDlg,hSrc,'ExtMode','off');
+  slConfigUISetVal(hDlg,hSrc,'ExtMode','on');
   slConfigUISetVal(hDlg,hSrc,'GenerateASAP2','off');
   slConfigUISetVal(hDlg,hSrc,'ExtModeTesting','off');
   slConfigUISetVal(hDlg,hSrc,'ExtModeTransport','0');
   slConfigUISetVal(hDlg,hSrc,'RTWVerbose','on');
   slConfigUISetVal(hDlg,hSrc,'MatFileLogging','off');
   slConfigUISetEnabled(hDlg,hSrc,'MatFileLogging','off');
+  slConfigUISetVal(hDlg,hSrc,'GRTInterface','on');
 
   slConfigUISetVal(hDlg, hSrc, 'ModelReferenceCompliant', 'on');
+  

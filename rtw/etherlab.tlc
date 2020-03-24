@@ -79,6 +79,14 @@
      'model is unloaded. The stack utilization is printed then.', ...
      sprintf('\n'), ...
      'Keep ~500 bytes free.' ];
+     
+  rtwoptions(5).prompt       = 'External Mode Mex File Arguments:	';
+  rtwoptions(5).type         = 'Edit';
+  rtwoptions(5).default      = '''localhost'' 0 17725';
+  rtwoptions(5).tlcvariable  = 'LocalExtModeMexArgs';
+  rtwoptions(5).makevariable = 'LOCALEXTMODEMEXARGS';
+  rtwoptions(5).tooltip      = ...
+    ['' ];
 
   rtwoptions(5).prompt       = 'Model parameter path prefix';
   rtwoptions(5).type         = 'Edit';
@@ -89,6 +97,14 @@
     ['This prefix is prepended to global model parameters', ...
      sprintf('\n'), ...
      'defined in the model explorer.'];
+
+  rtwoptions(6).prompt       = '32-bit Code generation';
+  rtwoptions(6).type         = 'Checkbox';
+  rtwoptions(6).default      = 'off';
+  rtwoptions(6).tlcvariable  = 'Ethercat32bit';
+  rtwoptions(6).makevariable = 'ETHERCAT32BIT';
+  rtwoptions(6).tooltip      = ...
+    ['' ];
 
   %----------------------------------------%
   % Configure RTW code generation settings %
