@@ -76,7 +76,24 @@ Motivation
     world from within the Simulink diagram. Most importantly, it works very
     closely with EtherCAT. This opens a enormous range of IO devices that can
     be used at the diagram level.
-
+    
+About this version of EtherLab
+    
+    This is a patched version of EtherLab with the purpose of a vast simplifi-
+    cation of the code and using the external mode in Simulink without losing
+    real-time capabilities. The performed changes are:
+    - remove syslog
+    - remove pdserv
+    - remove multitasking
+    - remove arguments
+    - adjusted overrun notification
+    - add external mode and change thread-concept
+        - main is running as a low-priority-thread
+            - executes time-consuming, undeterministic extmode functions
+        - simulink model runs in single-tasking-mode in an RT-priority thread
+    The advantage is a simplified control and iteration of a Simulink model, 
+    since no additional PdServ application has to be created.
+    
 Installation
 
     From Debian or rpm package:
