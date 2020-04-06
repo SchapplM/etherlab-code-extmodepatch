@@ -1,148 +1,25 @@
-/*****************************************************************************
- *
- * $Id$
- *
- * vim: tw=78
- *
- * Note about creating new Simulink data types:
- * In Simulink, new data types can be created. These named data types are
- * available in pdserv. These data types are C structures.
- *
- * IMPORTANT: Use this interface carefully. If you mess up, your application
- * will crash!
- *
- * PdServ detects these data types and searches the symbol table for a symbol
- * called "<name>_description". This symbol must be a zero terminated
- * structure vector with the following elements:
- * struct compound_desc {
- *     const char   *fieldName;   // Name of field
- *     size_t        offset;      // Offset of field in the structure
- *                                // Use offsetof() to get this value
- *     uint8_T       slDataId;    // enumerated data type
- *                                // from simstruc_types.h
- *                                // Can also be SS_STRUCT, in which case
- *                                // ->next must be used
- *     size_t        dataSize;    // data size in Bytes
- *     uint8_T       isComplex;   // Used only for primary data types
- *     size_t        numDims;     // number of elements in dimMap that
- *                                // specifies how many dimensions
- *                                // If dimMap == NULL, this value directly
- *                                // specifies the number of elements
- *     const size_t  *dimMap;     // Dimension list. If NULL, numDims
- *                                // specifies number of elements
- *     const struct compound_desc *next; // Pointer to another zero terminated
- *                                       // field set when
- *                                       // slDataId == SS_STRUCT
- * };
- *
- * The symbol name must also have "C" linkage, so add 'extern "C" {}' around
- * this definition (see below)
- *
- * To explain the mechanism behind numDims and dimMap:
- * For:              numDims=   dimMap=
- *      Scalars         1       NULL              double d
- *      Vectors         n       NULL              double h[6]
- *      N-Dim array     N       {d1,d2,...,dN}    double v[2][3][4]
- *
- *
- * For example, suppose you have a new data type called PRIV_TYPE, defined
- * as:
- *
-   // In file <privtype.h>
-
-   struct priv_type {
-          double dbl[4],
-          int16_t i16[5][6];
-          char c;
-          struct inner {
-              int32_t i32;
-              char b[40];
-          } inner[2];
-   };
-
-
- * Include the following code in the executable:
- * =========================================================================
- *
-   #include "privtype.h"
-
-   // Definition for struct priv_type
-
-   const size_t dimMap[] = {
-       5, 6,    // for i16
-   };
-
-   #ifdef __cplusplus
-   extern "C" {
-   #endif
-   struct compound_desc {
-       const char   *fieldName;
-       size_t        offset;
-       uint8_T       slDataId;
-       size_t        dataSize;
-       uint8_T       isComplex;
-       size_t        numDims;
-       const size_t  *dimMap;
-       const struct compound_desc *next;
-   } PRIV_TYPE_description[] = {
-       {"dbl",   offsetof(struct priv_type, dbl), SS_DOUBLE,
-           sizeof(real_T),        0, 4, NULL},
-
-       {"i16",   offsetof(struct priv_type, i16), SS_INT16,
-           sizeof(int16_T),       0, 2, dimMap},
-
-       {"c",     offsetof(struct priv_type, c), SS_INT8,
-           sizeof(char_T),        0, 1, NULL},
-
-       {"inner", offsetof(struct priv_type, inner), SS_STRUCT,
-                sizeof(struct inner),  0, 2, NULL, PRIV_TYPE_description + 5},
-
-       {0,}, // Zero terminator
-
-       {"i32",   offsetof(struct inner, i32), SS_INT32,
-           sizeof(int32_T),       0, 1,  NULL},
-
-       {"b",     offsetof(struct inner, b), SS_INT32,
-           sizeof(char_T),        0, 40, NULL},
-
-       {0,}, // Zero terminator
-   };
-   #ifdef __cplusplus
-   }
-   #endif
- * =========================================================================
- *
- ****************************************************************************/
-
 #include <stdio.h>
 #include <time.h>
 #include <pthread.h>
 #include <sys/mman.h>
-#include <getopt.h>
-#include <libgen.h> // basename()
 #include <errno.h>
 #include <inttypes.h>
-#include <unistd.h>  // daemon()
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include <stdlib.h>     // calloc()
 #include <alloca.h>     // alloca()
-#include <string.h>
-#include <dlfcn.h>
-#include <syslog.h>
 
-#include <pdserv.h>
+#include <signal.h>
 
 #include "rtmodel.h"
 #include "rtwtypes.h"
 #include "rt_sim.h"
 
-#ifdef PDSERV_VERSION_CODE
-#    if PDSERV_VERSION_CODE >= PDSERV_VERSION(3,0,0)
-#        define PDSERV3
-#    endif
-#endif
+#include "ext_work.h"
+
+
+#define SET_RT_PRIO 1
+
 
 /****************************************************************************/
 
@@ -190,12 +67,6 @@
 extern "C" {
 #endif
 
-struct pdserv *pdserv = NULL;
-struct pdserv *get_pdserv_ptr(void)
-{
-    return pdserv;
-}
-
 #define RTM             CONCAT(MODEL, _M)
 
 #if CLASSIC_INTERFACE
@@ -239,39 +110,30 @@ extern void rt_ODEUpdateContinuousStates(RTWSolverInfo *si);
 #endif
 
 
-/* See comment at the top of the file for registering new data types */
-struct compound_desc {
-    const char   *fieldName;
-    size_t        offset;
-    uint8_T       slDataId;
-    size_t        dataSize;
-    uint8_T       isComplex;
-    size_t        numDims;
-    const size_t  *dimMap;
-    const struct compound_desc *next;
-};
-
 
 #ifdef __cplusplus
 }
 #endif
 
-/* Command-line option variables.  */
 
-char *base_name = NULL; /**< basename of executable for usage() output. */
-int priority = -1; /**< Task priority, -1 means RT (maximum). */
-int dilation = 1; /** Time dilation factor */
-char *pdserv_config = NULL; /**< Path to PdServ configuration file. */
-bool daemonize = false; /**< Become a daemon. */
-const char *pidPath = ""; /**< Path of PID file (empty for no PID file). */
-int phase = -1;      /**< Phase to start task 0..100 */
+#ifdef EXT_MODE
+#define rtExtModeSingleTaskUpload(S)                          \
+   {                                                            \
+        int stIdx;                                              \
+        rtExtModeUploadCheckTrigger(rtmGetNumSampleTimes(S));   \
+        for (stIdx=0; stIdx<NUMST; stIdx++) {                   \
+            if (rtmIsSampleHit(S, stIdx, 0 /*unused*/)) {       \
+                rtExtModeUpload(stIdx,rtmGetTaskTime(S,stIdx)); \
+            }                                                   \
+        }                                                       \
+   }
+#else
+#define rtExtModeSingleTaskUpload(S)	/* Do nothing */
+#endif
 
-static void *exe;      /* Pointer to this executable. */
 
 const char* rt_OneStepMain(uint_T);
 const char* rt_OneStepTid(uint_T);
-int get_etl_data_type (const char *mwName,
-        uint8_T slDataId, size_t size, unsigned int isComplex);
 
 struct thread_task {
     unsigned int tid;
@@ -280,13 +142,10 @@ struct thread_task {
     unsigned int *running;
     const char *err;
     double sample_time;
-    struct pdtask *pdtask;
     struct timespec monotonic_time;
     struct timespec world_time;
     pthread_t thread;
-    pthread_mutex_t param_lock;
-    pthread_rwlock_t signal_lock;
-    const char* (*rt_OneStep)(uint_T);
+    const char* (*rt_OneStep)(RT_MODEL*, uint_T);
 };
 
 #define NSEC_PER_SEC (1000000000)
@@ -301,6 +160,7 @@ inline void timeradd(struct timespec *t, unsigned int dt)
     }
 }
 
+// return time difference t_B-t_A in nanoseconds
 #define DIFF_NS(A, B) (((long long) (B).tv_sec - (A).tv_sec) * NSEC_PER_SEC + \
         (B).tv_nsec - (A).tv_nsec)
 
@@ -308,10 +168,8 @@ inline void timeradd(struct timespec *t, unsigned int dt)
 
 /****************************************************************************/
 
-#if !MT  /* SINGLETASKING */
 
-#define NUMTASKS 1
-static struct thread_task task[NUMTASKS];
+static struct thread_task task;
 
 const struct timespec *
 get_etl_world_time(size_t tid)
@@ -336,6 +194,9 @@ rt_OneStepMain(uint_T tid)
     rtsiSetSolverStopTime(rtmGetRTWSolverInfo(RTM),tnext);
 
     MdlOutputs(0);
+    
+    rtExtModeSingleTaskUpload (RTM);
+    
     MdlUpdate(0);
 
     rt_SimUpdateDiscreteTaskSampleHits(rtmGetNumSampleTimes(RTM),
@@ -350,719 +211,74 @@ rt_OneStepMain(uint_T tid)
     MdlOutput();
     MdlUpdate();
 #endif
+    
+    rtExtModeCheckEndTrigger ();
 
     return rtmGetErrorStatus(RTM);
 }
 
-/****************************************************************************/
-
-#else /* MT */
-
-#if TID01EQ
-# define NUMTASKS (NUMST - 1)
-#else
-# define NUMTASKS NUMST
-#endif
-
-static struct thread_task task[NUMTASKS];
-pthread_key_t tid_key;
-
-const struct timespec *
-get_etl_world_time(size_t tid)
-{
-    return &task[tid].world_time;
-}
-
-/** Perform one step of the model.
- *
- * This function is modeled such that it could be called from an interrupt
- * service routine (ISR) with minor modifications.
- *
- * This routine is modeled for use in a multitasking environment and therefore
- * needs to be fully re-entrant when it is called from an interrupt service
- * routine.
- *
- * Note:
- *      Error checking is provided which will only be used if this routine
- *      is attached to an interrupt.
- */
-const char *
-rt_OneStepMain(uint_T tid)
-{
-    (void)tid;
-
-    /*******************************************
-     * Step the model for the base sample time *
-     *******************************************/
-
-#if CLASSIC_INTERFACE
-    real_T tnext;
-    tnext = rt_SimUpdateDiscreteEvents(
-                rtmGetNumSampleTimes(RTM),
-                rtmGetTimingData(RTM),
-                rtmGetSampleHitPtr(RTM),
-                rtmGetPerTaskSampleHitsPtr(RTM));
-
-    rtsiSetSolverStopTime(rtmGetRTWSolverInfo(RTM),tnext);
-
-    MdlOutputs(0);
-    MdlUpdate(0);
-
-    if (rtmGetSampleTime(RTM,0) == CONTINUOUS_SAMPLE_TIME) {
-        rt_UpdateContinuousStates(RTM);
-    } else {
-        rt_SimUpdateDiscreteTaskTime(rtmGetTPtr(RTM), rtmGetTimingData(RTM), 0);
-    }
-
-#if TID01EQ
-    rt_SimUpdateDiscreteTaskTime(rtmGetTPtr(RTM), rtmGetTimingData(RTM), 1);
-#endif
-
-#else
-    MdlOutput(0);
-    MdlUpdate(0);
-#endif
-
-    return rtmGetErrorStatus(RTM);
-}
-
-/****************************************************************************/
-
-/** Perform one step of the model subrates
- *
- * This routine is modeled for use in a multitasking environment and therefore
- * needs to be fully re-entrant when it is called from an interrupt service
- * routine.
- *
- * Note:
- *      Error checking is provided which will only be used if this routine
- *      is attached to an interrupt.
- */
-const char *
-rt_OneStepTid(uint_T tid)
-{
-    MdlOutput(tid);
-
-    MdlUpdate(tid);
-
-#if CLASSIC_INTERFACE
-    rt_SimUpdateDiscreteTaskTime(rtmGetTPtr(RTM), rtmGetTimingData(RTM), tid);
-#endif
-
-    return rtmGetErrorStatus(RTM);
-
-}
-
-/****************************************************************************/
-
-#endif /* MT */
-
-/** Run the main task.
- */
 void *run_task(void *p)
 {
     struct thread_task *thread = p;
-    unsigned int dt = 1.0e9 * thread->sample_time + 0.5;
-    uint32_t exec_ns = 0, period_ns = 0, overruns = 0;
-    struct timespec start_time,
-                    last_start_time = thread->monotonic_time,
-                    end_time = thread->monotonic_time;
+    unsigned int dt = 1.0e9 * thread->sample_time + 0.5; // sample time in nanoseconds
 
-    syslog(LOG_INFO, "Starting task with dt = %u ns.", dt);
+    int32_t overruns = 0, toolates = 0;
 
-#if MT
-    pthread_setspecific(tid_key, &thread->tid);
-#endif
+    struct timespec start_time, end_time = thread->monotonic_time;
 
+    
+    #ifdef SET_RT_PRIO
+
+    struct sched_param param = { };
+    param.sched_priority = sched_get_priority_max (SCHED_FIFO) - 1;
+    if (sched_setscheduler (0, SCHED_FIFO, &param) == -1)
+    {
+        fprintf (stderr, "Setting SCHED_FIFO" " with priority %i failed: %s\n",
+                param.sched_priority, strerror (errno));
+    }
+
+    printf ("Set task prio to %d\n", param.sched_priority);
+
+    #endif
+
+    clock_gettime (CLOCK_MONOTONIC, &task.monotonic_time);
+    timeradd(&thread->monotonic_time, dt);
+    unsigned int iloop = 0;
     while (!thread->err && *thread->running
             && !clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME,
                 &thread->monotonic_time, 0)) {
 
+        iloop++;
+        // get starttime and check if it is more than 0.5ms too late
         clock_gettime(CLOCK_MONOTONIC, &start_time);
-
-        pthread_rwlock_wrlock(&thread->signal_lock);
+        long long diffns1 = DIFF_NS(thread->monotonic_time, start_time);
+        if (diffns1 > 500000){
+            toolates++;
+            printf("Loop %d. TOO LATE (%d). Threadtime %ld.%.9ld s, starttime %ld.%.9ld s, diff %lld ns\n",
+              iloop, toolates, thread->monotonic_time.tv_sec, thread->monotonic_time.tv_nsec, start_time.tv_sec, start_time.tv_nsec, diffns1);
+        }
 
         clock_gettime(CLOCK_REALTIME, &thread->world_time);
+        // One step of the simulink model
+        thread->err = rt_OneStepMain(thread->S);
 
-#ifndef PDSERV3
-        if (thread == &task[0]) {
-            pdserv_get_parameters(pdserv, thread->pdtask,
-                    &thread->world_time);
-        }
-#endif
-
-        /* Lock parameters and execute task */
-        pthread_mutex_lock(&thread->param_lock);
-        thread->err = thread->rt_OneStep(thread->sl_tid);
-        pthread_mutex_unlock(&thread->param_lock);
-        pdserv_update(thread->pdtask, &thread->world_time);
-
-        /* Calculate timing statistics */
-        period_ns = DIFF_NS(last_start_time, start_time);
-        exec_ns = DIFF_NS(last_start_time, end_time);
-        last_start_time = start_time;
-        pdserv_update_statistics(thread->pdtask,
-                1.0e-9 * exec_ns, 1.0e-9 * period_ns, overruns);
-
-        pthread_rwlock_unlock(&thread->signal_lock);
-
+        // increase timestruct by model sample time dt
         timeradd(&thread->monotonic_time, dt);
 
-        clock_gettime(CLOCK_MONOTONIC, &end_time);
+        clock_gettime(CLOCK_MONOTONIC, &end_time); // write CLOCK_MONOTONIC in end_time
 
-        if (DIFF_NS(end_time, thread->monotonic_time) < 0)
+        // check if the current loop iteration took too long
+        long long diffns2 = DIFF_NS(end_time, thread->monotonic_time);
+        if (diffns2 < 0){
             overruns++;
+            printf("Loop %d. OVERRUN (%d). Threadtime %ld.%.9ld s, endtime %ld.%.9ld s, diff %lld ns\n",
+              iloop, overruns, thread->monotonic_time.tv_sec, thread->monotonic_time.tv_nsec, start_time.tv_sec, start_time.tv_nsec, diffns2);
+        }
     }
 
     *thread->running = 0;
 
     return 0;
-}
-
-/****************************************************************************/
-
-/** Create a new compound data type
- */
-size_t make_compound(int compound,
-        const struct compound_desc* compound_desc, size_t offset)
-{
-    int dt;
-    //printf("%s() compound=%i, offset=%zu\n", __func__, compound, offset);
-
-    for (; compound_desc->fieldName; compound_desc++) {
-        if (compound_desc->slDataId == SS_STRUCT) {
-            dt = pdserv_create_compound(
-                    compound_desc->fieldName, compound_desc->dataSize);
-            make_compound(dt, compound_desc->next,
-                    offset + compound_desc->offset);
-        }
-        else
-            dt = get_etl_data_type(
-                    compound_desc->fieldName,
-                    compound_desc->slDataId,
-                    compound_desc->dataSize,
-                    compound_desc->isComplex);
-
-        pdserv_compound_add_field( compound,
-                compound_desc->fieldName, dt, offset + compound_desc->offset,
-                compound_desc->numDims, compound_desc->dimMap);
-    }
-
-    return offset;
-}
-
-/** Get the compound data type as expected by EtherLab.
- */
-int get_compound_data_type(const char *mwName, size_t size)
-{
-    struct compound_list {
-        struct compound_list *next;
-        const char *mwName;
-        int dtype;
-    };
-    static struct compound_list compound_list_head = {
-        &compound_list_head, NULL, 0
-    };
-    struct compound_list *list;
-    const void *compound_desc;
-    char *compound_name;
-    size_t n;
-
-    /* Try to find the compound in the list */
-    for (list = &compound_list_head;
-            list->next != &compound_list_head; list = list->next) {
-        //printf("diff=, name=%s\n", list->mwName);
-        if (!strcmp(mwName, list->mwName))
-            return list->dtype;
-    }
-
-    /* Look for a symbol <mwName>_description */
-    if (!exe) {
-        exe = dlopen(NULL, RTLD_LAZY);
-        if (!exe)
-            return 0;
-    }
-    n = strlen(mwName);
-    compound_name = alloca(n + 20);     // including _description
-    strcpy(compound_name, mwName);
-    strcpy(compound_name+n, "_description");
-    compound_desc = dlsym(exe, compound_name);
-
-    if (!compound_desc)
-        return 0;
-
-    /* Append to end of list */
-    list->next = calloc(1, sizeof(struct compound_list));
-    list->mwName = mwName;
-    list->dtype = pdserv_create_compound(mwName, size);
-
-    list->next->next = &compound_list_head;
-
-    make_compound(list->dtype, compound_desc, 0);
-
-    //printf("%s exe=%p desc=%p\n", compound_name, exe, compound_desc);
-    return list->dtype;
-}
-
-/** Get the data type as expected by EtherLab.
- */
-int get_etl_data_type (const char *mwName,
-        uint8_T slDataId, size_t size, unsigned int isComplex)
-{
-    static int pd_complex[pd_datatype_end];
-
-    int pd_type;
-    switch (slDataId) {
-        case SS_DOUBLE:  pd_type = pd_double_T;        break;
-        case SS_SINGLE:  pd_type = pd_single_T;        break;
-        case SS_INT8:    pd_type = pd_sint8_T;         break;
-        case SS_UINT8:   pd_type = pd_uint8_T;         break;
-        case SS_INT16:   pd_type = pd_sint16_T;        break;
-        case SS_UINT16:  pd_type = pd_uint16_T;        break;
-        case SS_INT32:   pd_type = pd_sint32_T;        break;
-        case SS_UINT32:  pd_type = pd_uint32_T;        break;
-        case SS_BOOLEAN: pd_type = pd_boolean_T;       break;
-        case SS_STRUCT:
-                         pd_type = get_compound_data_type(mwName, size);
-                         break;
-        default:         pd_type = 0;                  break;
-    }
-
-    //printf("new datat type %i\n", pd_type);
-    if (!isComplex || !pd_type || slDataId == SS_STRUCT)
-        return pd_type;
-
-//    printf("complex type %i %i %i\n",
-//            dataTypeIndex, pd_type, pd_complex[pd_type]);
-    if (pd_complex[pd_type])
-        return pd_complex[pd_type];
-
-    pd_complex[pd_type] = pdserv_create_compound( mwName, size);
-    pdserv_compound_add_field( pd_complex[pd_type],
-            "Re", pd_type, 0, 1, NULL);
-    pdserv_compound_add_field( pd_complex[pd_type],
-            "Im", pd_type, size / 2, 1, NULL);
-
-    return pd_complex[pd_type];
-}
-
-/****************************************************************************/
-
-int write_parameter(
-        const struct pdvariable* param,
-        void *dst, const void* src, size_t len,
-        struct timespec* time,
-        void* priv_data)
-{
-    (void)param;
-    (void)priv_data;
-    struct thread_task *p_task = task + NUMTASKS;
-
-    while (p_task != task)
-        pthread_mutex_lock(&(--p_task)->param_lock);
-
-    memcpy(dst, src, len);
-    clock_gettime(CLOCK_REALTIME, time);
-
-    p_task = task + NUMTASKS;
-    while (p_task != task)
-        pthread_mutex_unlock(&(--p_task)->param_lock);
-
-    return 0;
-}
-
-/****************************************************************************/
-
-int read_signal(
-        const struct pdvariable* signal,
-        void* dst, const void* src, size_t len,
-        struct timespec* time,
-        void* priv_data)
-{
-    (void)signal;
-    struct thread_task* task = priv_data;
-
-    pthread_rwlock_rdlock(&task->signal_lock);
-    memcpy(dst, src, len);
-    if (time)
-        *time = task->world_time;
-    pthread_rwlock_unlock(&task->signal_lock);
-
-    return 0;
-}
-
-
-/****************************************************************************
- * Create dimension array, taking care of Matlab's quirks:
- * 1) Adjacent memory locations in C is row wise, in Matlab column wise
- * 2) Vectors are horizontal
- *
- * Thus the C matrix will be displayed to be transposed
- *
- * !! The returned size_t array must be free()ed if ndim > 2
- */
-static size_t *
-create_dim(
-        /* Input */
-        const rtwCAPI_DimensionMap* dimMap,
-        size_t dimIndex,
-        const uint_T* dimArray,
-
-        /* Output */
-        uint8_T *ndim)
-{
-    uint_T dimArrayIndex = rtwCAPI_GetDimArrayIndex(dimMap, dimIndex);
-    size_t numDims = rtwCAPI_GetNumDims(dimMap, dimIndex);
-
-    static size_t defaultDim[2];
-    size_t *dim = defaultDim;
-
-    if (numDims == 1) {
-        /* Only one dimension */
-        dim[0] = dimArray[dimArrayIndex];
-    }
-    else if (numDims == 2) {
-        if (dimArray[dimArrayIndex] == 1) {
-            // A vector or matrix with one row
-            numDims = 1;
-            dim[0] = dimArray[dimArrayIndex + 1];
-        }
-        else if (rtwCAPI_GetOrientation(dimMap, dimIndex)
-                == rtwCAPI_MATRIX_COL_MAJOR) {
-            dim[0] = dimArray[dimArrayIndex + 1];
-            dim[1] = dimArray[dimArrayIndex];
-        }
-        else {
-            dim[0] = dimArray[dimArrayIndex];
-            dim[1] = dimArray[dimArrayIndex + 1];
-        }
-    }
-    else {
-        /* Reverse the order of the nD-Matrix.
-         * Matlab's Matrices run coherently from the first to the last index,
-         * while in C it is exactly the other way round. The intention here
-         * is to present the arrays in a way that is compatable to C.
-         *
-         * e.g. in Matlab A(2,1,1) and A(3,1,1) are adjacent, whereas
-         * in C, A[1][1][2] and A[1][1][3] are adjacent.
-         */
-        size_t i;
-        dim = calloc(numDims, sizeof(size_t));
-        for (i = 0; i < numDims; ++i)
-            dim[i] = dimArray[dimArrayIndex + (numDims - 1) - i];
-    }
-
-    *ndim = numDims;
-    return dim;
-}
-
-/****************************************************************************/
-
-/** Register a signal with PdServ.
- */
-    const char *
-register_signal(
-        struct thread_task *task,
-        const rtwCAPI_Signals* signals,
-        size_t idx,
-        rtwCAPI_ModelMappingInfo* mmi,
-        const rtwCAPI_DimensionMap* dimMap,
-        const rtwCAPI_DataTypeMap* dTypeMap,
-        const uint_T* dimArray,
-        const rtwCAPI_SampleTimeMap* sampleTimeMap,
-        void ** dataAddressMap)
-{
-    (void)mmi;
-    uint_T addrMapIndex    = rtwCAPI_GetSignalAddrIdx(signals, idx);
-    /* size_t sysNum = rtwCAPI_GetSignalSysNum(signals, idx); */
-    const char *blockPath  = rtwCAPI_GetSignalBlockPath(signals, idx);
-    const char *signalName = rtwCAPI_GetSignalName(signals, idx);
-    uint16_T portNumber      = rtwCAPI_GetSignalPortNumber(signals, idx);
-    uint16_T dataTypeIndex   = rtwCAPI_GetSignalDataTypeIdx(signals, idx);
-    uint16_T dimIndex        = rtwCAPI_GetSignalDimensionIdx(signals, idx);
-    uint8_T  sTimeIndex      = rtwCAPI_GetSignalSampleTimeIdx(signals, idx);
-
-    uint8_T ndim;
-    size_t *dim = create_dim(dimMap, dimIndex, dimArray, &ndim);
-
-    const void *address =
-        rtwCAPI_GetDataAddress(dataAddressMap, addrMapIndex);
-    int data_type = get_etl_data_type(
-            rtwCAPI_GetDataTypeMWName(dTypeMap, dataTypeIndex),
-            rtwCAPI_GetDataTypeSLId(dTypeMap, dataTypeIndex),
-            rtwCAPI_GetDataTypeSize(dTypeMap, dataTypeIndex),
-            rtwCAPI_GetDataIsComplex(dTypeMap, dataTypeIndex));
-
-    // Path has 1 slash, a port number (uint16_T = 5 digits)
-    // and a terminating \0 extra
-    size_t pathLen = strlen(blockPath) + strlen(signalName) + 7;
-    char *path = alloca(pathLen);
-
-#if !MT
-    const real_T *sampleTime =
-        rtwCAPI_GetSamplePeriodPtr(sampleTimeMap, sTimeIndex);
-#endif
-    int8_T tid = rtwCAPI_GetSampleTimeTID(sampleTimeMap, sTimeIndex);
-    uint_T decimation;
-    boolean_T related;
-    const char *prev_signal_path, *next_signal_path;
-
-    struct pdvariable *signal;
-    const char* err = 0;
-
-    /* Only allow built-in data types */
-    if (!data_type)
-        goto out;
-
-    /* Check that the data type is compatible */
-    if (rtwCAPI_GetDataIsPointer(dTypeMap, dataTypeIndex)) {
-        err = "Cannot interact with pointer data types.";
-        goto out;
-    }
-
-    /* Find out whether this signal path is the same as a neighbour. Then
-     * the path must be modified to make it unique.
-     * If it has an alias, use it, otherwise hopefully the port number
-     * can be used to make it unique.
-     *
-     * Note: * idx + 1 is valid, since the list is null terminated
-     */
-    prev_signal_path =
-        idx ? rtwCAPI_GetSignalBlockPath(signals, idx-1) : NULL;
-    next_signal_path = rtwCAPI_GetSignalBlockPath(signals, idx+1);
-    related =
-        (prev_signal_path && !strcmp(blockPath, prev_signal_path))
-        || (next_signal_path && !strcmp(blockPath, next_signal_path));
-
-    /* Simulink Coder adds model name to the path. This is totally useless,
-     * so remomve it */
-    blockPath = strchr(blockPath, '/');
-    if (!blockPath) {
-        err = "No '/' in path";
-        goto out;
-    }
-
-    /* Format block path */
-    if (related) {
-        if (*signalName && strlen(signalName)) {
-            /* Add alias to signal name for related signals */
-            snprintf(path, pathLen, "%s/%s", blockPath, signalName);
-            signalName = NULL;
-        }
-        else {
-            /* No alias, so add portNumber to identify related signals */
-            snprintf(path, pathLen, "%s/%u", blockPath, portNumber);
-        }
-    }
-    else {
-        strncpy(path, blockPath, pathLen);
-    }
-
-#if !MT
-    decimation =
-        tid >= 0 && *sampleTime ? *sampleTime/task[0].sample_time + 0.5 : 1;
-#else
-    decimation = 1;
-    if (tid >= 0) {
-        task += tid - (tid && TID01EQ);
-    }
-#endif
-
-    //printf("Reg with dt=%i\n", data_type);
-#ifdef PDSERV3
-    signal = pdserv_signal(task->pdtask, decimation,
-            path, data_type, address, ndim, dim, read_signal, task);
-#else
-    signal = pdserv_signal(task->pdtask, decimation,
-            path, data_type, address, ndim, dim);
-#endif
-
-    if (signal && !related && signalName && *signalName)
-        pdserv_set_alias(signal, signalName);
-
-out:
-    if (ndim > 2)
-        free(dim);
-
-    if (err)
-        printf("Error registering signal %s: %s\n", path, err);
-
-    return err;
-}
-
-/****************************************************************************/
-
-/** Register a parameter with PdServ.
- */
-    const char *
-register_parameter(
-        struct pdserv *pdserv,
-        const rtwCAPI_BlockParameters* params,
-        size_t idx,
-        rtwCAPI_ModelMappingInfo* mmi,
-        const rtwCAPI_DimensionMap* dimMap,
-        const rtwCAPI_DataTypeMap* dTypeMap,
-        const uint_T* dimArray,
-        void ** dataAddressMap)
-{
-    (void)mmi;
-    uint_T addrMapIndex = rtwCAPI_GetBlockParameterAddrIdx(params, idx);
-    const char *blockPath = rtwCAPI_GetBlockParameterBlockPath(params, idx);
-    const char *paramName = rtwCAPI_GetBlockParameterName(params, idx);
-    uint16_T dataTypeIndex = rtwCAPI_GetBlockParameterDataTypeIdx(params, idx);
-    uint16_T dimIndex = rtwCAPI_GetBlockParameterDimensionIdx(params, idx);
-
-    uint8_T ndim;
-    size_t *dim = create_dim(dimMap, dimIndex, dimArray, &ndim);
-
-    void *address = rtwCAPI_GetDataAddress(dataAddressMap, addrMapIndex);
-
-    // Path has 1 slash and a terminating \0 extra
-    const size_t pathLen = strlen(blockPath) + strlen(paramName) + 2;
-    char *path = alloca(pathLen);
-
-    int data_type = get_etl_data_type(
-            rtwCAPI_GetDataTypeMWName(dTypeMap, dataTypeIndex),
-            rtwCAPI_GetDataTypeSLId(dTypeMap, dataTypeIndex),
-            rtwCAPI_GetDataTypeSize(dTypeMap, dataTypeIndex),
-            rtwCAPI_GetDataIsComplex(dTypeMap, dataTypeIndex));
-
-    const char* err = 0;
-
-    /* Only allow built-in data types */
-    if (!data_type)
-        goto out;
-
-    /* Check that the data type is compatible */
-    if (rtwCAPI_GetDataIsPointer(dTypeMap, dataTypeIndex)) {
-        err = "Cannot interact with pointer data types.";
-        goto out;
-    }
-
-    blockPath = strchr(blockPath, '/');
-    if (!blockPath) {
-        err = "No '/' in path";
-        goto out;
-    }
-
-    snprintf(path, pathLen, "%s/%s", blockPath, paramName);
-
-#ifdef PDSERV3
-    pdserv_parameter(pdserv, path, 0666, data_type, address, ndim, dim,
-            write_parameter, 0);
-#else
-    pdserv_parameter(pdserv, path, 0666, data_type, address, ndim, dim, 0, 0);
-#endif
-
-out:
-    if (ndim > 2)
-        free(dim);
-
-    if (err)
-        printf("Error registering signal %s: %s\n", path, err);
-
-    return err;
-}
-
-/****************************************************************************/
-
-/** Register a model parameter with PdServ.
- */
-    const char *
-register_model_parameter(
-        struct pdserv *pdserv,
-        const rtwCAPI_ModelParameters* params,
-        size_t idx,
-        rtwCAPI_ModelMappingInfo* mmi,
-        const rtwCAPI_DimensionMap* dimMap,
-        const rtwCAPI_DataTypeMap* dTypeMap,
-        const uint_T* dimArray,
-        void ** dataAddressMap)
-{
-    (void)mmi;
-    uint_T addrMapIndex = rtwCAPI_GetModelParameterAddrIdx(params, idx);
-    const char *paramName = rtwCAPI_GetModelParameterName(params, idx);
-    uint16_T dataTypeIndex = rtwCAPI_GetModelParameterDataTypeIdx(params, idx);
-    uint16_T dimIndex = rtwCAPI_GetModelParameterDimensionIdx(params, idx);
-
-    uint8_T ndim;
-    size_t *dim = create_dim(dimMap, dimIndex, dimArray, &ndim);
-
-    void *address = rtwCAPI_GetDataAddress(dataAddressMap, addrMapIndex);
-    static const char* prefix = QUOTE(PARAMETER_PREFIX);
-
-    // Path has 2 slashes and a terminating \0 extra
-    const size_t pathLen = strlen(prefix) + strlen(paramName) + 3;
-    char *path = alloca(pathLen);
-
-    int data_type = get_etl_data_type(
-            rtwCAPI_GetDataTypeMWName(dTypeMap, dataTypeIndex),
-            rtwCAPI_GetDataTypeSLId(dTypeMap, dataTypeIndex),
-            rtwCAPI_GetDataTypeSize(dTypeMap, dataTypeIndex),
-            rtwCAPI_GetDataIsComplex(dTypeMap, dataTypeIndex));
-
-    const char* err = 0;
-
-    /* Only allow built-in data types */
-    if (!data_type)
-        goto out;
-
-    /* Check that the data type is compatible */
-    if (rtwCAPI_GetDataIsPointer(dTypeMap, dataTypeIndex)) {
-        err = "Cannot interact with pointer data types.";
-        goto out;
-    }
-
-    snprintf(path, pathLen, "/%s/%s", prefix, paramName);
-
-#ifdef PDSERV3
-    pdserv_parameter(pdserv, path, 0666, data_type, address, ndim, dim,
-            write_parameter, 0);
-#else
-    pdserv_parameter(pdserv, path, 0666, data_type, address, ndim, dim, 0, 0);
-#endif
-
-out:
-    if (ndim > 2)
-        free(dim);
-
-    if (err)
-        printf("Error registering signal %s: %s\n", path, err);
-
-    return err;
-}
-
-/****************************************************************************/
-
-/** Initialize all model variables.
- */
-    const char *
-rtw_capi_init(struct pdserv *pdserv, struct thread_task *task)
-{
-    rtwCAPI_ModelMappingInfo* mmi = &(rtmGetDataMapInfo(RTM).mmi);
-    const rtwCAPI_DimensionMap* dimMap = rtwCAPI_GetDimensionMap(mmi);
-    const rtwCAPI_DataTypeMap* dTypeMap = rtwCAPI_GetDataTypeMap(mmi);
-    const uint_T* dimArray = rtwCAPI_GetDimensionArray(mmi);
-    const rtwCAPI_SampleTimeMap* sampleTimeMap = rtwCAPI_GetSampleTimeMap(mmi);
-    void ** dataAddressMap = rtwCAPI_GetDataAddressMap(mmi);
-    const rtwCAPI_Signals* signals = rtwCAPI_GetSignals(mmi);
-    const rtwCAPI_BlockParameters* params = rtwCAPI_GetBlockParameters(mmi);
-    const rtwCAPI_ModelParameters* model_params = rtwCAPI_GetModelParameters(mmi);
-    size_t i;
-
-    for (i = 0; i < rtwCAPI_GetNumSignals(mmi); ++i)
-        register_signal(task, signals, i,
-                mmi, dimMap, dTypeMap, dimArray, sampleTimeMap, dataAddressMap);
-
-    for (i = 0; i < rtwCAPI_GetNumBlockParameters(mmi); ++i)
-        register_parameter(pdserv, params, i,
-                mmi, dimMap, dTypeMap, dimArray, dataAddressMap);
-
-    for (i = 0; i < rtwCAPI_GetNumModelParameters(mmi); ++i)
-        register_model_parameter(pdserv, model_params, i,
-                mmi, dimMap, dTypeMap, dimArray, dataAddressMap);
-
-    return NULL;
 }
 
 /****************************************************************************/
@@ -1093,7 +309,10 @@ const char *init_application(void)
                     &rtmGetTimingData(RTM)))) {
         return errmsg;
     }
-    rt_CreateIntegrationData(RTM);
+
+    rtExtModeCheckInit (rtmGetNumSampleTimes (RTM));
+    rtExtModeWaitForStartPkt (rtmGetRTWExtModeInfo (RTM), rtmGetNumSampleTimes (RTM), (boolean_T *) & rtmGetStopRequested(RTM));
+
     MdlStart();
 #else
     MdlInitialize();
@@ -1110,17 +329,6 @@ const char *init_application(void)
 
 /****************************************************************************/
 
-/** Return the current system time.
- *
- * This is a callback needed by pdserv.
- */
-int gettime(struct timespec *time)
-{
-    return clock_gettime(CLOCK_REALTIME, time);
-}
-
-/****************************************************************************/
-
 /** Cause a stack fault before entering cyclic operation.
  */
 void stack_prefault(void)
@@ -1130,378 +338,90 @@ void stack_prefault(void)
     memset(dummy, 0, MAX_SAFE_STACK);
 }
 
-/****************************************************************************/
+static volatile int keepRunning = 1;
 
-/** Remove the PID file.
- */
-void remove_pid_file(void)
+void
+intHandler (int dummy)
 {
-    int ret;
-
-    ret = unlink(pidPath);
-    if (ret == -1) {
-        fprintf(stderr, "Failed to remove PID file \"%s\": %s\n",
-                pidPath, strerror(errno));
-    }
+    printf ("EXIT!\n");
+    keepRunning = 0;
 }
-
-/****************************************************************************/
-
-/** Create the PID file.
- */
-void create_pid_file(void)
-{
-    int fd, ret, len;
-    char str[32];
-
-    fd = open(pidPath, O_WRONLY | O_TRUNC | O_CREAT, 0644);
-    if (fd == -1) {
-        fprintf(stderr, "Failed to create PID file \"%s\": %s\n",
-                pidPath, strerror(errno));
-        return;
-    }
-
-    len = snprintf(str, sizeof(str), "%i\n", getpid());
-
-    ret = write(fd, str, len);
-    if (ret == -1) {
-        fprintf(stderr, "Failed to write to PID file \"%s\": %s\n",
-                pidPath, strerror(errno));
-        goto out_unlink;
-    }
-
-    if (ret != len) {
-        fprintf(stderr, "Failed to write to PID file \"%s\"."
-                " Written %i of %i bytes.", pidPath, ret, len);
-        goto out_unlink;
-    }
-
-    return;
-
-out_unlink:
-    close(fd);
-    remove_pid_file();
-}
-
-/****************************************************************************/
-
-/** Output the usage.
- */
-void usage(FILE *f)
-{
-    fprintf(f,
-            "Usage: %s [OPTIONS]\n"
-            "Options:\n"
-            "  --priority       -p <PRIO>  Set task priority. Default: RT.\n"
-            "  --pdserv-config  -c <PATH>  PdServ configuration file.\n"
-            "                              Default: None (use defaults).\n"
-            "  --pid-path       -i <PATH>  Write PID file. Default: "
-                                           "No PID file.\n"
-            "  --start-phase    -f         Timing phase to start off (0..99)\n"
-            "                              Default: -1 (None)\n"
-            "  --daemon         -d         Become a daemon before cyclic "
-                                           "operation.\n"
-            "  --time-dilation  -D <fact>  Cyclic time dilation factor.\n"
-            "       No other timings are affected. This is useful for very\n"
-            "       fast running simulation tasks causing overruns.\n"
-            "  --help           -h         Show this help.\n",
-            base_name);
-}
-
-/****************************************************************************/
-
-/** Get the command-line options.
- */
-void get_options(int argc, char **argv)
-{
-    int c, arg_count;
-
-    static struct option longOptions[] = {
-        //name,           has_arg,           flag, val
-        {"priority",      required_argument, NULL, 'p'},
-        {"pdserv-config", required_argument, NULL, 'c'},
-        {"pid-file",      required_argument, NULL, 'i'},
-        {"start-phase",   required_argument, NULL, 'f'},
-        {"time-dilation", required_argument, NULL, 'D'},
-        {"daemon",        no_argument,       NULL, 'd'},
-        {"help",          no_argument,       NULL, 'h'},
-        {NULL,            no_argument,       NULL,   0}
-    };
-
-    do {
-        c = getopt_long(argc, argv, "p:c:i:f:D:dh", longOptions, NULL);
-
-        switch (c) {
-            case 'p':
-                if (!strcmp(optarg, "RT")) {
-                    priority = -1;
-                } else {
-                    char *end;
-                    priority = strtoul(optarg, &end, 10);
-                    if (!*optarg || *end) {
-                        fprintf(stderr, "Invalid priority: %s\n", optarg);
-                        exit(1);
-                    }
-                }
-                break;
-
-            case 'D':
-                dilation = atoi(optarg);
-                if (dilation < 1) {
-                    fprintf(stderr, "Invalid dilation: %s\n", optarg);
-                    exit(1);
-                }
-                break;
-
-            case 'c':
-                pdserv_config = optarg;
-                break;
-
-            case 'i':
-                pidPath = optarg;
-                break;
-
-            case 'f':
-                phase = atoi(optarg);
-                if (phase >= 100) {
-                    fprintf(stderr, "Invalid phase: %s\n", optarg);
-                    exit(1);
-                }
-                break;
-
-            case 'd':
-                daemonize = true;
-                break;
-
-            case 'h':
-                usage(stdout);
-                exit(0);
-
-            case '?':
-                usage(stderr);
-                exit(1);
-
-            default:
-                break;
-        }
-    }
-    while (c != -1);
-
-    arg_count = argc - optind;
-
-    if (arg_count) {
-        fprintf(stderr, "%s takes no arguments!\n", base_name);
-        usage(stderr);
-        exit(1);
-    }
-}
-
-/****************************************************************************/
 
 /** Process main function.
  */
 int main(int argc, char **argv)
 {
+    unsigned int dt_main;
     unsigned int running = 1;
     const char *err = NULL;
-    struct thread_task* p_task;
-    pthread_rwlockattr_t rwlock_attr;
+
+    rtExtModeParseArgs (argc, argv, NULL);
+      
+    signal (SIGINT, intHandler);
+
 #if !CLASSIC_INTERFACE
     const rtwCAPI_SampleTimeMap *sampleTimeMap
         = rtwCAPI_GetSampleTimeMapFromStaticMap(MdlGetCAPIStaticMap());
 #endif
-
-    /* Set defaults for command-line options. */
-    base_name = basename(argv[0]);
-
-    get_options(argc, argv);
-
-    if (daemonize) {
-        int ret;
-        fprintf(stderr, "Now becoming a daemon.\n");
-        ret = daemon(0, 0);
-        if (ret != 0) {
-            fprintf(stderr, "Failed to become daemon: %s\n", strerror(errno));
-            pdserv_exit(pdserv);
-            err = "daemon() failed.";
-            goto out;
-        }
-    }
-
-    if (!(pdserv = pdserv_create(QUOTE(MODEL), MODEL_VERSION, gettime))) {
-        err = "Failed to init pdserv.";
-        goto out;
-    }
-
-    if (pdserv_config) {
-        pdserv_config_file(pdserv, pdserv_config);
-    }
-
-    /* Initialize rwlock attributes */
-    pthread_rwlockattr_init(&rwlock_attr);
-    pthread_rwlockattr_setkind_np(&rwlock_attr,
-            PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
-
-#if MT
-    pthread_key_create(&tid_key, 0);
-#endif
-
-    /* Initialize model */
-    if ((err = init_application())) {
-        pdserv_exit(pdserv);
-        goto out;
-    }
-
-    /* Create necessary pdserv tasks */
-    for (p_task = task; p_task != task + NUMTASKS; ++p_task) {
-        double ts;
-#if CLASSIC_INTERFACE
-        ts = rtmGetSampleTime(RTM, p_task->sl_tid);
-#else
-        int i = 0;
-        while (i < NUMST
-                && ((unsigned)rtwCAPI_GetSampleTimeTID(sampleTimeMap, i)
-                    != p_task->sl_tid))
-            ++i;
-        ts = rtwCAPI_GetSamplePeriod(sampleTimeMap, i);
-#endif
-
-        p_task->tid = p_task - task;
-        p_task->sl_tid = p_task->tid + TID01EQ;
-        p_task->sample_time = ts * dilation;
-        p_task->pdtask = pdserv_create_task(pdserv, p_task->sample_time, 0);
-
-        pthread_rwlock_init(&p_task->signal_lock, &rwlock_attr);
-        pthread_mutex_init(&p_task->param_lock, NULL);
-    }
-
-    pthread_rwlockattr_destroy(&rwlock_attr);
-
-    /* Register signals and parameters */
-    if ((err = rtw_capi_init(pdserv, task))) {
-        pdserv_exit(pdserv);
-        goto out;
-    }
-
-    /* Prepare process-data interface, create threads, etc. */
-    pdserv_prepare(pdserv);
-
+    double ts;
+    ts = rtmGetSampleTime(RTM, task.sl_tid);
+    task.sample_time = ts;
+    printf ("Sample-Time: %f\n", task.sample_time);
+  
     /* Lock all memory forever. */
     if (mlockall(MCL_CURRENT | MCL_FUTURE))
         fprintf(stderr, "mlockall() failed: %s\n", strerror(errno));
 
-    /* Set task priority. */
-    {
-        struct sched_param param;
-        if (priority == -1)
-            priority = sched_get_priority_max(SCHED_FIFO);
-
-        param.sched_priority = priority;
-        if (sched_setscheduler(0, SCHED_FIFO, &param) == -1) {
-            fprintf(stderr,
-                    "Setting SCHED_FIFO with priority %i failed: %s\n",
-                    param.sched_priority, strerror(errno));
-
-            /* Reset priority, so that sub-threads start */
-            priority = -1;
-        }
-    }
-
     /* Provoke the first stack fault before cyclic operation. */
     stack_prefault();
 
-    if (pidPath[0])
-        create_pid_file();
+    if ((err = init_application()))
+        goto out;
 
-    openlog("rttask", LOG_PID, LOG_DAEMON);
 
-    /* Delay start time of slowest task to an integral multiple of
-     * its sample time. This allows synchronization of real time
-     * threads, specifically to enable phasing */
-    p_task = task + NUMTASKS-1;
-    clock_gettime(CLOCK_MONOTONIC, &p_task->monotonic_time);
-    if (phase >= 0) {
-        uint64_t t64 = 1000000000ULL * p_task->monotonic_time.tv_sec
-            + p_task->monotonic_time.tv_nsec;
-        uint64_t dt = p_task->sample_time * 1e9;
-        unsigned int phase_shift = dt - (t64 % dt);
+    
+    task.running = &running;
+    task.err = 0;
+    pthread_create (&task.thread, 0, run_task, &task);
 
-        syslog(LOG_INFO, "Delay starting time by %u ns.", phase_shift);
-        timeradd(&p_task->monotonic_time, phase_shift);
+    dt_main = 0.02 * 1.0e9 + 0.5; // 20ms interval for external mode
+    struct timespec main_time;
+    clock_gettime (CLOCK_MONOTONIC, &main_time);
+    /* Main thread running here */
+    do
+    {
+        clock_gettime (CLOCK_REALTIME, &task.world_time);
+
+        rtExtModePauseIfNeeded (rtmGetRTWExtModeInfo (RTM), rtmGetNumSampleTimes (RTM), (boolean_T *) & rtmGetStopRequested (RTM));
+
+        /* external mode */
+        rtExtModeOneStep (rtmGetRTWExtModeInfo (RTM), rtmGetNumSampleTimes (RTM), (boolean_T *) & rtmGetStopRequested (RTM));
+
+        // set timer for external mode
+        timeradd (&main_time, dt_main);
+        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME,&main_time, NULL);
     }
+    while (!err && running && keepRunning);
 
-    /* Start sub-threads */
-    for (p_task = task; p_task != task + NUMTASKS; ++p_task) {
-        p_task->monotonic_time = task[NUMTASKS-1].monotonic_time;
-        p_task->running = &running;
-        p_task->err = 0;
+    /* external mode */
+    rtExtModeOneStep (rtmGetRTWExtModeInfo (RTM), rtmGetNumSampleTimes (RTM),
+            (boolean_T *) & rtmGetStopRequested (RTM));
 
-        if (phase >= 0) {
-            /* Delay start time as required by phase */
-            timeradd(&p_task->monotonic_time,
-                    1.0e9 * p_task->sample_time * phase / 100);
-        }
+    running = 0;
 
-        if (p_task == task)
-            p_task->rt_OneStep = rt_OneStepMain;
-#if MT
-        else {
-            struct sched_param param = {
-                .sched_priority = priority - (p_task - task),
-            };
-            pthread_attr_t attr;
+    rtExtModeShutdown (rtmGetNumSampleTimes (RTM));
 
-            /* Setup scheduler */
-            pthread_attr_init(&attr);
-            pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
-            pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
-            pthread_attr_setschedparam(&attr, &param);
-
-            p_task->rt_OneStep = rt_OneStepTid;
-            pthread_create(&p_task->thread,
-                    priority == -1 ? NULL : &attr, run_task, p_task);
-
-            pthread_attr_destroy(&attr);
-        }
-#endif
-    }
-
-    syslog(LOG_INFO, "Starting main thread with dt = %u ns.",
-            (unsigned int)(p_task->sample_time * 1e9 + 0.5));
-
-    /* Now run main task */
-    run_task(&task[0]);
-
-    /* Collect tasks and report errors */
-    for (p_task = task; p_task != task + NUMTASKS; ++p_task) {
-        if (p_task != task)
-            pthread_join(p_task->thread, 0);
-
-        if (p_task->err)
-            fprintf(stderr, "Task %zi had an error: %s\n",
-                    p_task - task, p_task->err);
-    }
+    pthread_join (task.thread, 0);
 
     /* Clean up */
-    pdserv_exit(pdserv);
     MdlTerminate();
-    if (pidPath[0])
-        remove_pid_file();
-
-#if MT
-    pthread_key_delete(tid_key);
-#endif
 
 out:
     if (err) {
         fprintf(stderr, "Fatal error: %s\n", err);
-        syslog(LOG_INFO, "Exiting with error.");
-        closelog();
         return 1;
     }
     else {
-        syslog(LOG_INFO, "Exiting gracefully.");
-        closelog();
         return 0;
     }
 }
