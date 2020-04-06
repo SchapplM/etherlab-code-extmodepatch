@@ -82,6 +82,14 @@
      'model is unloaded. The stack utilization is printed then.', ...
      sprintf('\n'), ...
      'Keep ~500 bytes free.' ];
+     
+  rtwoptions(5).prompt       = 'External Mode Mex File Arguments:	';
+  rtwoptions(5).type         = 'Edit';
+  rtwoptions(5).default      = '''localhost'' 0 17725';
+  rtwoptions(5).tlcvariable  = 'LocalExtModeMexArgs';
+  rtwoptions(5).makevariable = 'LOCALEXTMODEMEXARGS';
+  rtwoptions(5).tooltip      = ...
+    ['' ];
 
   rtwoptions(5).prompt       = 'Model parameter path prefix';
   rtwoptions(5).type         = 'Edit';
@@ -130,6 +138,15 @@
     rtwoptions(14).type = 'NonUI';
     rtwoptions(14).makevariable = 'MULTI_INSTANCE_CODE';
   end
+
+  rtwoptions(15).prompt       = '32-bit Code generation';
+  rtwoptions(15).type         = 'Checkbox';
+  rtwoptions(15).default      = 'off';
+  rtwoptions(15).tlcvariable  = 'Ethercat32bit';
+  rtwoptions(15).makevariable = 'ETHERCAT32BIT';
+  rtwoptions(15).modelReferenceParameterCheck = 'off';
+  rtwoptions(15).tooltip      = ...
+    ['' ];
 
   %----------------------------------------%
   % Configure RTW code generation settings %

@@ -1,0 +1,87 @@
+%% SYSTLC: EtherLab PREEMT_RT Real-Time Target \
+%%    TMF: etherlab_hrt_pcu.tmf MAKE: make_rtw EXTMODE: ext_comm 
+%%
+%% Copyright (c) 2012 IgH Essen GmbH
+%% License: GPL
+%%
+%% Abstract: EtherLab system target file.
+%%     This file is read when the path to this file is in Matlab's search
+%%     path while searching available targets in RTW. 
+%%     Configuration Parameters -> Real-Time Workshop -> Target Selection
+%%     -> System Target Files -> Browse
+%%
+%%
+%selectfile NULL_FILE
+
+%assign TargetType = "RT"       %% RT; NRT
+%assign Language   = "C"
+%assign GenRTModel = 1
+
+%assign CodeFormat = "RealTime" %% RealTime, RealTimeMalloc, Embedded-C
+
+%assign MatFileLogging = 0
+
+%include "codegenentry.tlc"
+
+%include "etherlab_genfiles.tlc"
+
+%% The contents between 'BEGIN_RTW_OPTIONS' and 'END_RTW_OPTIONS' in this file
+%% are used to maintain backward compatibility to R13 and preR13 custom target 
+%% file only.  If you want to use this file as a template to develop your
+%% own system target file, you need to remove the 'CONFIGSET_TARGET_COMPONENT'
+%% section at the end of this file.
+%%
+/%
+  BEGIN_RTW_OPTIONS
+
+  % second page of category item
+  rtwoptions(1).prompt         = 'EtherLab C code generation options';
+  rtwoptions(1).type           = 'Category';
+  rtwoptions(1).enable         = 'on';  
+  rtwoptions(1).default        = 0;   % number of items under this category
+                                      % excluding this one.
+  rtwoptions(1).popupstrings  = '';
+  rtwoptions(1).tlcvariable   = '';
+  rtwoptions(1).tooltip       = '';
+  rtwoptions(1).callback      = '';
+  rtwoptions(1).opencallback  = '';
+  rtwoptions(1).closecallback = '';
+  rtwoptions(1).makevariable  = '';
+
+  rtwoptions(2).prompt         = 'BIO Buffer time:	';
+  rtwoptions(2).type           = 'Edit';
+  rtwoptions(2).default        = '2';
+  rtwoptions(2).tlcvariable    = 'BufferTime';
+  rtwoptions(2).makevariable   = 'BUFFER_TIME';
+  rtwoptions(2).tooltip        = ...
+    ['Specify how long in seconds Block IO signals must be',sprintf('\n'), ...
+     'saved in the realtime process when the user buddy is',sprintf('\n'), ...
+     'prevented from collecting these'];
+
+  rtwoptions(5).prompt       = 'External Mode Mex File Arguments:	';
+  rtwoptions(5).type         = 'Edit';
+  rtwoptions(5).default      = '''localhost'' 0 17725';
+  rtwoptions(5).tlcvariable  = 'LocalExtModeMexArgs';
+  rtwoptions(5).makevariable = 'LOCALEXTMODEMEXARGS';
+  rtwoptions(5).tooltip      = ...
+    ['' ];
+
+  rtwoptions(7).prompt       = 'ASYNC-Mode (first send EtherCAT-Data, then step Model)';
+  rtwoptions(7).type         = 'Checkbox';
+  rtwoptions(7).default      = 'off';
+  rtwoptions(7).tlcvariable  = 'EthercatASYNC';
+  rtwoptions(7).makevariable = 'ETHERCATASYNC';
+  rtwoptions(7).tooltip      = ...
+    ['' ];
+
+  %----------------------------------------%
+  % Configure RTW code generation settings %
+  %----------------------------------------%
+  
+  rtwgensettings.BuildDirSuffix = '_etl_hrt';
+  rtwgensettings.Version = '1';
+  rtwgensettings.SelectCallback = 'etherlab_config(hDlg,hSrc)';
+  rtwgensettings.DerivedFrom = 'grt.tlc';
+  
+  END_RTW_OPTIONS 
+ %/
